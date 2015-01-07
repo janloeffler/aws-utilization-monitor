@@ -15,6 +15,8 @@ import com.amazonaws.AmazonClientException;
 import com.amazonaws.AmazonServiceException;
 import com.amazonaws.auth.AWSCredentials;
 import com.amazonaws.auth.profile.ProfileCredentialsProvider;
+import com.amazonaws.regions.Region;
+import com.amazonaws.regions.Regions;
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDB;
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClient;
 import com.amazonaws.services.ec2.AmazonEC2;
@@ -159,18 +161,20 @@ public final class AwsConnection {
 	    	        
 	    	lastCollectTime = DateTime.now();
 			
-	    	collectEC2Data(currentStats, credentials);
-	    	collectS3Data(currentStats, credentials);
-	    	collectSimpleDBData(currentStats, credentials);
-	    	collectDynamoDBData(currentStats, credentials);	
-	    	collectElastiCacheData(currentStats, credentials);	
-	    	collectElasticTranscoderData(currentStats, credentials);	
-	    	collectKinesisData(currentStats, credentials);	
-	    	collectRedshiftData(currentStats, credentials);	
-	    	collectRDSData(currentStats, credentials);	
-	    	collectElasticTranscoderData(currentStats, credentials);	
-	    	collectGlacierData(currentStats, credentials);	
-	    	collectElasticMapReduceData(currentStats, credentials);		    	
+	    	Region region = Region.getRegion(Regions.EU_WEST_1);
+	    	
+	    	collectEC2Data(currentStats, credentials, region);
+	    	collectS3Data(currentStats, credentials, region);
+	    	collectSimpleDBData(currentStats, credentials, region);
+	    	collectDynamoDBData(currentStats, credentials, region);	
+	    	collectElastiCacheData(currentStats, credentials, region);	
+	    	collectElasticTranscoderData(currentStats, credentials, region);	
+	    	collectKinesisData(currentStats, credentials, region);	
+	    	collectRedshiftData(currentStats, credentials, region);	
+	    	collectRDSData(currentStats, credentials, region);	
+	    	collectElasticTranscoderData(currentStats, credentials, region);	
+	    	collectGlacierData(currentStats, credentials, region);	
+	    	collectElasticMapReduceData(currentStats, credentials, region);		    	
         } catch (Exception e) {
         	LOG.error("Connect to AWS failed: " + e.getMessage());
         }		      
@@ -184,19 +188,21 @@ public final class AwsConnection {
 	 * @param stats current statistics object.
 	 * @param credentials currently used credentials object.
 	 */
-	private void collectEC2Data(AwsStats stats, AWSCredentials credentials) {
+	private void collectEC2Data(AwsStats stats, AWSCredentials credentials, Region region) {
 		try {
-	    	AmazonEC2 ec2 = new AmazonEC2Client(credentials);
+			//AmazonEC2 ec2 = region.createClient(AmazonEC2Client.class, credentials, config)
+			AmazonEC2 ec2 = new AmazonEC2Client(credentials);
+			ec2.setRegion(region);
 			
+            DescribeRegionsResult regionsResult = ec2.describeRegions();
+            LOG.info(regionsResult.getRegions().size() + " EC2 regions");
+            
             DescribeAvailabilityZonesResult availabilityZonesResult = ec2.describeAvailabilityZones();
             LOG.info(availabilityZonesResult.getAvailabilityZones().size() + " Availability Zones");
 
             DescribeImagesResult imagesResult = ec2.describeImages();
             LOG.info(imagesResult.getImages().size() + " EC2 images");
            
-            DescribeRegionsResult regionsResult = ec2.describeRegions();
-            LOG.info(regionsResult.getRegions().size() + " EC2 regions");
-            
             DescribeSecurityGroupsResult securityGroupsResult = ec2.describeSecurityGroups();
             LOG.info(securityGroupsResult.getSecurityGroups().size() + " EC2 security groups");
             
@@ -227,7 +233,7 @@ public final class AwsConnection {
 	 * @param stats current statistics object.
 	 * @param credentials currently used credentials object.
 	 */
-	private void collectS3Data(AwsStats stats, AWSCredentials credentials) {
+	private void collectS3Data(AwsStats stats, AWSCredentials credentials, Region region) {
         /*
          * Amazon S3
          *
@@ -242,6 +248,7 @@ public final class AwsConnection {
          */
         try {
 	    	AmazonS3 s3  = new AmazonS3Client(credentials);
+	    	s3.setRegion(region);
 	    	
 	    	List<Bucket> buckets = s3.listBuckets();
 
@@ -301,7 +308,7 @@ public final class AwsConnection {
 	 * @param stats current statistics object.
 	 * @param credentials currently used credentials object.
 	 */
-	private void collectSimpleDBData(AwsStats stats, AWSCredentials credentials) {		
+	private void collectSimpleDBData(AwsStats stats, AWSCredentials credentials, Region region) {		
         /*
          * Amazon SimpleDB
          *
@@ -314,6 +321,7 @@ public final class AwsConnection {
          */
         try {
 	    	AmazonSimpleDB simpleDB = new AmazonSimpleDBClient(credentials);
+	    	simpleDB.setRegion(region);
 	    	
 	    	ListDomainsRequest sdbRequest = new ListDomainsRequest().withMaxNumberOfDomains(100);
             ListDomainsResult sdbResult = simpleDB.listDomains(sdbRequest);
@@ -342,13 +350,14 @@ public final class AwsConnection {
 	 * @param stats current statistics object.
 	 * @param credentials currently used credentials object.
 	 */
-	private void collectDynamoDBData(AwsStats stats, AWSCredentials credentials) {
+	private void collectDynamoDBData(AwsStats stats, AWSCredentials credentials, Region region) {
         /*
          * Amazon DynamoDB
          */
         try {
 	    	AmazonDynamoDB dynamoDB = new AmazonDynamoDBClient(credentials);
-
+	    	dynamoDB.setRegion(region);
+	    	
 	    	List<String> list = dynamoDB.listTables().getTableNames();
 
             int totalItems = list.size();
@@ -371,10 +380,11 @@ public final class AwsConnection {
 	 * @param stats current statistics object.
 	 * @param credentials currently used credentials object.
 	 */
-	private void collectElasticTranscoderData(AwsStats stats, AWSCredentials credentials) {
+	private void collectElasticTranscoderData(AwsStats stats, AWSCredentials credentials, Region region) {
         try {
 	    	AmazonElasticTranscoder elasticTranscoder = new AmazonElasticTranscoderClient(credentials);
-
+	    	elasticTranscoder.setRegion(region);
+	    	
 	    	List<Pipeline> list = elasticTranscoder.listPipelines().getPipelines();
 
             int totalItems = list.size();
@@ -397,10 +407,11 @@ public final class AwsConnection {
 	 * @param stats current statistics object.
 	 * @param credentials currently used credentials object.
 	 */
-	private void collectKinesisData(AwsStats stats, AWSCredentials credentials) {
+	private void collectKinesisData(AwsStats stats, AWSCredentials credentials, Region region) {
         try {
 	    	AmazonKinesis kinesis = new AmazonKinesisClient(credentials);
-
+	    	kinesis.setRegion(region);
+	    	
 	    	List<String> list = kinesis.listStreams().getStreamNames();
 
             int totalItems = list.size();
@@ -423,10 +434,11 @@ public final class AwsConnection {
 	 * @param stats current statistics object.
 	 * @param credentials currently used credentials object.
 	 */
-	private void collectRedshiftData(AwsStats stats, AWSCredentials credentials) {
+	private void collectRedshiftData(AwsStats stats, AWSCredentials credentials, Region region) {
         try {
 	    	AmazonRedshift redshift = new AmazonRedshiftClient(credentials);
-
+	    	redshift.setRegion(region);
+	    	
 	    	List<Cluster> list = redshift.describeClusters().getClusters();
 
             int totalItems = list.size();
@@ -449,10 +461,11 @@ public final class AwsConnection {
 	 * @param stats current statistics object.
 	 * @param credentials currently used credentials object.
 	 */
-	private void collectRDSData(AwsStats stats, AWSCredentials credentials) {
+	private void collectRDSData(AwsStats stats, AWSCredentials credentials, Region region) {
         try {
 	    	AmazonRDS rds = new AmazonRDSClient(credentials);
-
+	    	rds.setRegion(region);
+	    	
 	    	List<DBInstance> list = rds.describeDBInstances().getDBInstances();
 
             int totalItems = list.size();
@@ -475,11 +488,13 @@ public final class AwsConnection {
 	 * @param stats current statistics object.
 	 * @param credentials currently used credentials object.
 	 */
-	private void collectGlacierData(AwsStats stats, AWSCredentials credentials) {
+	private void collectGlacierData(AwsStats stats, AWSCredentials credentials, Region region) {
 /*
         try {
 	    	AmazonGlacier glacier = new AmazonGlacierClient(credentials);
- 	    	List<String> list = glacier..listTables().getTableNames();
+	    	glacier.setRegion(region);
+	    	
+	    	List<String> list = glacier..listTables().getTableNames();
 
             int totalItems = list.size();
             for (String tableName : list) {
@@ -502,10 +517,11 @@ public final class AwsConnection {
 	 * @param stats current statistics object.
 	 * @param credentials currently used credentials object.
 	 */
-	private void collectElasticMapReduceData(AwsStats stats, AWSCredentials credentials) {
+	private void collectElasticMapReduceData(AwsStats stats, AWSCredentials credentials, Region region) {
         try {
 	    	AmazonElasticMapReduce elasticMapReduce = new AmazonElasticMapReduceClient(credentials);
-
+	    	elasticMapReduce.setRegion(region);
+	    	
 	    	List<ClusterSummary> list = elasticMapReduce.listClusters().getClusters();
 
             int totalItems = list.size();
@@ -528,13 +544,14 @@ public final class AwsConnection {
 	 * @param stats current statistics object.
 	 * @param credentials currently used credentials object.
 	 */
-	private void collectElastiCacheData(AwsStats stats, AWSCredentials credentials) {
+	private void collectElastiCacheData(AwsStats stats, AWSCredentials credentials, Region region) {
         /*
          * Amazon ElastiCache
          */
         try {
 	    	AmazonElastiCache elastiCache = new AmazonElastiCacheClient(credentials);
-
+	    	elastiCache.setRegion(region);
+	    	
 	    	List<CacheCluster> list = elastiCache.describeCacheClusters().getCacheClusters();
 
             int totalItems = list.size();

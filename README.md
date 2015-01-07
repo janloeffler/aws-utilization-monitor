@@ -13,14 +13,27 @@ This project show everything necessary, to deploy a fully working Java Spring we
 * Docker (see Boot2Docker for Mac users)
 * AWS Minion (https://github.com/zalando/aws-minion)
 
+# Make sure aws-minion is uptodate
+
+    $ sudo pip3 install --upgrade aws-minion
+
+# Login to AWS
+
+    $ alias awslogin="minion login -r PowerUser --overwrite-credentials"
+    $ awslogin
+
+# Prepare docker when using boot2docker on MacOS
+
+    $ $(boot2docker shellinit)
+    $ VBoxManage controlvm boot2docker-vm natpf1 "awsutilizationmonitor,tcp,127.0.0.1,8080,,8080"
+
 # Build the project
 
     $ mvn clean package
     $ docker build -t docker-registry2.hackweek.aws.zalando/awsutilizationmonitor:1.0 .
-
+    
 # Check that our Docker image works
 
-    $ VBoxManage controlvm boot2docker-vm natpf1 "awsutilizationmonitor,tcp,127.0.0.1,8080,,8080"
     $ docker run -p 8080:8080 -it docker-registry2.hackweek.aws.zalando/awsutilizationmonitor:1.0
 
 Visit [http://localhost:8080/](http://localhost:8080/)! Stop your server with **Ctrl+C**.
@@ -60,6 +73,8 @@ to the new version:
 
 Have fun with [https://awsutilizationmonitor.hackweek.aws.zalando/](https://awsutilizationmonitor.hackweek.aws.zalando/)!
 
+    $ awsutilizationmonitor.platform.aws.zalando
+    
 Observe your logs (remember that the Load Balancer checks spam your HTTP):
 
     $ minion version logs awsutilizationmonitor 1.0
