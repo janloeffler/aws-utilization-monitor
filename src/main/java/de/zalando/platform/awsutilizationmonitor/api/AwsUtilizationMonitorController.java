@@ -109,7 +109,7 @@ final class AwsUtilizationMonitorController {
         return collector.getStats().getRegions();
     }
     
-    @RequestMapping("/regions/{ownerName}")
+    @RequestMapping("/regions/{region}")
     @ResponseBody
     AwsResource[] regions(@PathVariable String region) {
         LOG.info("called /regions/" + region);
