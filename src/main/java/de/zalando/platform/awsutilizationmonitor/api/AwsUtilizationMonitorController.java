@@ -10,11 +10,50 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.google.gson.Gson;
-
 @RestController
 final class AwsUtilizationMonitorController {
     public static final Logger LOG = LoggerFactory.getLogger(AwsUtilizationMonitorController.class);
+    
+    @RequestMapping("/apps/")
+    @ResponseBody
+    AwsStats apps() {
+        LOG.info("called /apps");
+        
+        AwsStatsCollector collector = new AwsStatsCollector();        
+        return collector.getStats();
+    }
+    
+    @RequestMapping("/apps/{appName}")
+    @ResponseBody
+    AwsResource apps(@PathVariable String appName) {
+        LOG.info("called /apps/" + appName);
+        
+        AwsStatsCollector collector = new AwsStatsCollector();      
+        AwsResource res = collector.getStats().getResource(appName);
+               
+        if (res == null) {
+        	LOG.info("No resource found with name \"" + appName + "\"!");
+        }        	
+        
+        return res;
+    }    
+    
+    @RequestMapping("/clear/")
+    @ResponseBody
+    String clear() {
+        LOG.info("called /clear");
+        
+        AwsStatsCollector collector = new AwsStatsCollector();
+        collector.clearCache();
+       
+        return "Cache empty";        
+    }
+
+    @RequestMapping("/health/")
+    @ResponseBody
+    String health() {       
+        return "OK";
+   }    
     
     @RequestMapping("/")
     @ResponseBody
@@ -26,6 +65,8 @@ final class AwsUtilizationMonitorController {
         		+ "<li><a href=/apps/app_1/>/apps/{app_name}/</a> Show app with name \"app_1\"</li>"
         		+ "<li><a href=/owners/>/owners/</a> List owners</li>"
         		+ "<li><a href=/owners/Jan%20Löffler/>/owners/{owner_name}/</a> Show resources used by owner with name \"Jan Löffler\"</li>"
+        		+ "<li><a href=/regions/>/regions/</a> List regions</li>"
+        		+ "<li><a href=/regions/eu-west-1/>/regions/{region_name}/</a> Show resources used by region with name \"eu-west-1\"</li>"
            		+ "<li><a href=/search/banana/>/search/{search_pattern}/</a> Show app with name \"banana\"</li>"
            	    + "<li><a href=/statistics/>/statistics/</a> Show statistics about resource usage</li>"
            	    + "<li><a href=/test/>/test/</a> Generate test data</li>"
@@ -35,87 +76,69 @@ final class AwsUtilizationMonitorController {
         		+ "</ul></p></body></html>";        		
     }
     
-    @RequestMapping("/apps/")
-    @ResponseBody
-    String apps() {
-        LOG.info("called /apps");
-        
-        AwsStatsCollector collector = new AwsStatsCollector();
-        
-        Gson gson = new Gson();        
-        return gson.toJson(collector.getStats());
-    }    
-    
-    @RequestMapping("/apps/{appName}")
-    @ResponseBody
-    String apps(@PathVariable String appName) {
-        LOG.info("called /apps/" + appName);
-        
-        AwsStatsCollector collector = new AwsStatsCollector();      
-        AwsResource res = collector.getStats().getResource(appName);
-        
-        if (res == null) {
-        	return "ERROR: No resource found with name \"" + appName + "\"!";
-        } else {        	
-	        Gson gson = new Gson();	        
-	        return gson.toJson(res);       
-        }
-    }
-    
-    @RequestMapping("/apps2/")
-    @ResponseBody
-    AwsStats apps2() {
-        LOG.info("called /apps2");
-        
-        AwsStatsCollector collector = new AwsStatsCollector();
-        collector.generateSampleData(30);
-        
-        return collector.getStats();
-    }
-
     @RequestMapping("/owners/")
     @ResponseBody
-    String owners() {
+    String[] owners() {
         LOG.info("called /owners");
         
         AwsStatsCollector collector = new AwsStatsCollector();
-        
-        Gson gson = new Gson();        
-        return gson.toJson(collector.getStats().getOwners());
-    }    
+        return collector.getStats().getOwners();
+    }
     
     @RequestMapping("/owners/{ownerName}")
     @ResponseBody
-    String owners(@PathVariable String ownerName) {
+    AwsResource[] owners(@PathVariable String ownerName) {
         LOG.info("called /owners/" + ownerName);
         
         AwsStatsCollector collector = new AwsStatsCollector();      
         AwsResource[] results = collector.getStats().getResourcesByOwner(ownerName);
         
         if ((results == null) || (results.length == 0)) {
-        	return "ERROR: No resource found for owner \"" + ownerName + "\"!";
-        } else {        	
-	        Gson gson = new Gson();	        
-	        return gson.toJson(results);       
-        }
+        	LOG.info("No resource found for owner \"" + ownerName + "\"!");
+        } 
+
+        return results;
+    }
+    
+    @RequestMapping("/regions/")
+    @ResponseBody
+    String[] regions() {
+        LOG.info("called /regions");
+        
+        AwsStatsCollector collector = new AwsStatsCollector();
+        return collector.getStats().getRegions();
+    }
+    
+    @RequestMapping("/regions/{ownerName}")
+    @ResponseBody
+    AwsResource[] regions(@PathVariable String region) {
+        LOG.info("called /regions/" + region);
+        
+        AwsStatsCollector collector = new AwsStatsCollector();      
+        AwsResource[] results = collector.getStats().getResourcesByRegion(region);
+        
+        if ((results == null) || (results.length == 0)) {
+        	LOG.info("No resource found for region \"" + region + "\"!");
+        } 
+
+        return results;
     }
     
     @RequestMapping("/search/{searchPattern}")
     @ResponseBody
-    String search(@PathVariable String searchPattern) {
+    AwsResource[] search(@PathVariable String searchPattern) {
         LOG.info("called /search/" + searchPattern);
         
         AwsStatsCollector collector = new AwsStatsCollector();      
         AwsResource[] results = collector.getStats().searchResource(searchPattern);
         
         if ((results == null) || (results.length == 0)) {
-        	return "ERROR: No resource found with pattern \"" + searchPattern + "\"!";
-        } else {        	
-	        Gson gson = new Gson();	        
-	        return gson.toJson(results);       
-        }
+        	LOG.info("No resource found with pattern \"" + searchPattern + "\"!");
+        } 
+        
+        return results;
     }
-    
+   
     @RequestMapping("/statistics/")
     @ResponseBody
     String statistics() {
@@ -126,6 +149,7 @@ final class AwsUtilizationMonitorController {
        
         AwsResource[] resources = stats.getAllResources();
         String[] owners = stats.getOwners();
+        String[] regions = stats.getRegions();
         AwsResourceType[] resourceTypes = stats.getUsedResourceTypes();
         
         StringBuilder s = new StringBuilder();
@@ -146,6 +170,15 @@ final class AwsUtilizationMonitorController {
         }
         
         s.append("</ul>"
+        		+ "<li><a href=/regions/>" + regions.length + "</a> regions</li>"
+        		+ "<ul>");
+
+		for (String region : regions) {        	
+			int amount = stats.getResourcesByRegion(region).length;
+			s.append("<li><a href=/regions/" + region + ">" + amount + "</a> resources in \"" + region + "\"</li>");
+		}
+
+        s.append("</ul>"
 				+ "<li>" + resourceTypes.length + " AWS components used</li>"
 				+ "<ul>");
         
@@ -159,45 +192,26 @@ final class AwsUtilizationMonitorController {
         
         return s.toString();
     }
-    
+   
     @RequestMapping("/test/")
     @ResponseBody
-    String test() {
+    AwsStats test() {
         LOG.info("called /test");
         
         AwsStatsCollector collector = new AwsStatsCollector();
         collector.generateSampleData(30);
-       
-        Gson gson = new Gson();       
-        return gson.toJson(collector.getStats());        
+        
+        return collector.getStats();        
     }
    
     @RequestMapping("/test/{maxItems}")
     @ResponseBody
-    String test(@PathVariable int maxItems) {
+    AwsStats test(@PathVariable int maxItems) {
         LOG.info("called /test/" + maxItems);
         
         AwsStatsCollector collector = new AwsStatsCollector();
         collector.generateSampleData(maxItems);
        
-        Gson gson = new Gson();       
-        return gson.toJson(collector.getStats());        
-    }
-   
-    @RequestMapping("/clear/")
-    @ResponseBody
-    String clear() {
-        LOG.info("called /clear");
-        
-        AwsStatsCollector collector = new AwsStatsCollector();
-        collector.clearCache();
-       
-        return "Cache empty";        
-    }
-   
-    @RequestMapping("/health/")
-    @ResponseBody
-    String health() {       
-        return "OK";
-   }    
+        return collector.getStats();        
+    }    
 }

@@ -3,7 +3,8 @@
  */
 package de.zalando.platform.awsutilizationmonitor.test;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertTrue;
 
 import org.junit.Test;
 
@@ -18,15 +19,6 @@ import de.zalando.platform.awsutilizationmonitor.api.AwsStats;
 public class AwsStatsTest {
 
 	@Test
-	public void testGenerateSampleData() {		
-		AwsStats stats = new AwsStats();
-		
-		stats.generateSampleData(15);
-		
-		assertTrue(stats.getAllResources().length >= 15);
-	}
-
-	@Test
 	public void testClearData() {		
 		AwsStats stats = new AwsStats();
 		
@@ -37,8 +29,17 @@ public class AwsStatsTest {
 	}
 
 	@Test
+	public void testGenerateSampleData() {		
+		AwsStats stats = new AwsStats();
+		
+		stats.generateSampleData(15);
+		
+		assertTrue(stats.getAllResources().length >= 15);
+	}
+
+	@Test
 	public void testInsertData() {		
-		AwsResource res = new AwsResource("Testname", "Testowner", AwsResourceType.Redshift, "Infotext");
+		AwsResource res = new AwsResource("Testname", "Testowner", AwsResourceType.Redshift, "EU-WEST-2", "Infotext");
 		AwsStats stats = new AwsStats();
 		
 		stats.add(res);

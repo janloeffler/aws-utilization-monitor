@@ -11,7 +11,7 @@ import java.util.Random;
  */
 public class AwsStats {
     
-	Hashtable<AwsResourceType, ArrayList<AwsResource>> resources = new Hashtable<AwsResourceType, ArrayList<AwsResource>>();
+	private Hashtable<AwsResourceType, ArrayList<AwsResource>> resources = new Hashtable<AwsResourceType, ArrayList<AwsResource>>();
     
     /**
      * Add a new resource to statistics set.
@@ -22,33 +22,34 @@ public class AwsStats {
     	if (res == null)
     		return;
     	
-    	if (res.resourceType == null)
-    		res.resourceType = AwsResourceType.Unknown;
+    	if (res.getResourceType() == null)
+    		res.setResourceType(AwsResourceType.Unknown);
     	
-    	ArrayList<AwsResource> list = this.resources.get(res.resourceType); 
+    	ArrayList<AwsResource> list = this.resources.get(res.getResourceType()); 
     	if (list == null) {
     		list = new ArrayList<AwsResource> ();
     		list.add(res);
-    		this.resources.put(res.resourceType, list);
+    		this.resources.put(res.getResourceType(), list);
     	} else {
     		list.add(res);    		
     	}    	
     }
 
-    /**
+	/**
      * Remove all collected information about resources.
      */
     public void clear() {
     	resources.clear();
     }
- 
-    /**
+
+	/**
      * Generate some sample data to test application.
      * @param maxItems amount of test items inserted in collection.
      */
     public void generateSampleData(int maxItems) {
     	String[] appNames = new String[] {"FeedTheWorld", "EmpireStrikesBack", "Imperator", "HelloWorld", "ShoppingCart", "AwsChecker"};
         String[] owners = new String[] {"Mickey Mouse", "Max Mustermann", "Ironman", "Hackweek", "Superman", "Mr. Bond", "Overlord"};
+        String[] regions = new String[] {"EU_WEST_1", "EU_WEST_2" };
         
         Hashtable<AwsResourceType, String> prefixes = new Hashtable<AwsResourceType, String>();
         prefixes.put(AwsResourceType.EC2, "app_");
@@ -68,11 +69,12 @@ public class AwsStats {
     		}
     		String appName = prefix + appNames[r.nextInt(appNames.length - 1)];
     		String owner = owners[r.nextInt(owners.length - 1)];
+    		String region = regions[r.nextInt(regions.length - 1)];
     		
-            add(new AwsResource( appName, owner, resourceType ));
+            add(new AwsResource( appName, owner, resourceType, region, "Sample data" ));
          }
     }
-    
+
     /**
      * @return all resources in one list.
      */
@@ -84,8 +86,8 @@ public class AwsStats {
     	}
    	
     	return results.toArray(new AwsResource[results.size()]);
-    }   
-    
+    }
+ 
     /**
      * Returns all owners sorted alphabetically.
      * 
@@ -96,8 +98,28 @@ public class AwsStats {
     	ArrayList<String> results = new ArrayList<String>();
 
         for (AwsResource res : list) {
-    		if (!results.contains(res.owner)) {
-    			results.add(res.owner);
+    		if (!results.contains(res.getOwner())) {
+    			results.add(res.getOwner());
+    		}
+    	}
+        
+        results.sort(null);
+   	
+    	return results.toArray(new String[results.size()]);
+    }
+    
+    /**
+     * Returns all regions sorted alphabetically.
+     * 
+     * @return sorted list of all regions.
+     */
+    public String[] getRegions() {
+        AwsResource[] list = getAllResources();
+    	ArrayList<String> results = new ArrayList<String>();
+
+        for (AwsResource res : list) {
+    		if (!results.contains(res.getRegion())) {
+    			results.add(res.getRegion());
     		}
     	}
         
@@ -116,14 +138,21 @@ public class AwsStats {
     	AwsResource[] list = getAllResources();
     	
         for (AwsResource res : list) {
-    		if (res.name.equalsIgnoreCase(resourceName)) {
+    		if (res.getName().equalsIgnoreCase(resourceName)) {
     			return res;
     		}
     	}
     	
     	return null;
-    }
-
+    }   
+    
+    /**
+	 * @return the resources
+	 */
+	public Hashtable<AwsResourceType, ArrayList<AwsResource>> getResources() {
+		return resources;
+	}
+    
     /**
      * @return all resources in one list for a given resource type.
      * 
@@ -137,8 +166,8 @@ public class AwsStats {
     	} else {
     		return results.toArray(new AwsResource[results.size()]);
     	}
-    } 
-    
+    }
+
     /**
      * Get the resources of the specified owner.
      * 
@@ -150,35 +179,32 @@ public class AwsStats {
         ArrayList<AwsResource> results = new ArrayList<AwsResource>();
     	
         for (AwsResource res : list) {
-    		if (res.owner.equalsIgnoreCase(ownerName)) {
+    		if (res.getOwner().equalsIgnoreCase(ownerName)) {
     			results.add(res);
     		}
     	}
     	
     	return results.toArray(new AwsResource[results.size()]);
-    }
+    } 
     
     /**
-     * Searches all resources that match the specified pattern.
+     * Get the resources of the specified region.
      * 
-     * @param searchPattern pattern to search for
-     * @return list of all matching resources
+     * @param region Name of the region e.g. "eu-west-1"
+     * @return Resources that belong to the specified region.
      */
-    public AwsResource[] searchResource(String searchPattern) {
+    public AwsResource[] getResourcesByRegion(String region) {
         AwsResource[] list = getAllResources();
         ArrayList<AwsResource> results = new ArrayList<AwsResource>();
-        String s = searchPattern.toLowerCase();
-        
+    	
         for (AwsResource res : list) {
-    		if (res.name.toLowerCase().contains(s)
-    				|| res.owner.toLowerCase().contains(s)
-    				|| res.resourceType.toString().toLowerCase().contains(s)) {
+    		if (res.getRegion().equalsIgnoreCase(region)) {
     			results.add(res);
     		}
     	}
     	
     	return results.toArray(new AwsResource[results.size()]);
-    }
+    } 
     
     /**
      * Returns all used resource types (e.g. EC2, S3) of used resources.
@@ -196,5 +222,36 @@ public class AwsStats {
         results.sort(null);
    	
     	return results.toArray(new AwsResourceType[results.size()]);
-    }    
+    }
+    
+    /**
+     * Searches all resources that match the specified pattern.
+     * 
+     * @param searchPattern pattern to search for
+     * @return list of all matching resources
+     */
+    public AwsResource[] searchResource(String searchPattern) {
+        AwsResource[] list = getAllResources();
+        ArrayList<AwsResource> results = new ArrayList<AwsResource>();
+        String s = searchPattern.toLowerCase();
+        
+        for (AwsResource res : list) {
+    		if (res.getName().toLowerCase().contains(s)
+    				|| res.getOwner().toLowerCase().contains(s)
+    				|| res.getRegion().toLowerCase().contains(s)
+    				|| res.getResourceType().toString().toLowerCase().contains(s)) {
+    			results.add(res);
+    		}
+    	}
+    	
+    	return results.toArray(new AwsResource[results.size()]);
+    }
+    
+    /**
+	 * @param resources the resources to set
+	 */
+	public void setResources(
+			Hashtable<AwsResourceType, ArrayList<AwsResource>> resources) {
+		this.resources = resources;
+	}    
 }
