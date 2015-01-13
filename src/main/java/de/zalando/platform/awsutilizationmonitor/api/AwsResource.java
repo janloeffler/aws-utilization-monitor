@@ -1,54 +1,101 @@
 package de.zalando.platform.awsutilizationmonitor.api;
 
-public class AwsResource {
+import java.util.Hashtable;
+
+import com.amazonaws.regions.Regions;
+
+public class AwsResource extends Hashtable<String, String> implements Comparable<AwsResource> {
     
-    private String name = "";
+	private static final long serialVersionUID = 1L;
+	private String name = "";
     private String owner = "";
     private AwsResourceType resourceType = AwsResourceType.Unknown;
-    private String region = "";
-    private String info = "";
+    private Regions region = Regions.DEFAULT_REGION;
         
     public AwsResource (String name, String owner, AwsResourceType resourceType) { 
-        this (name, owner, resourceType, "");
+        this (name, owner, resourceType, Regions.DEFAULT_REGION);
     }
 
-	public AwsResource (String name, String owner, AwsResourceType resourceType, String region) {
-        this (name, owner, resourceType, region, "");    
+	public AwsResource (String name, String owner, AwsResourceType resourceType, Regions region) {
+        setName(name);
+        setOwner(owner);
+        setResourceType(resourceType);
+        setRegion(region);
     }
-
-	public AwsResource (String name, String owner, AwsResourceType resourceType, String region, String info) {
-        this.name = name;
-        this.owner = owner;
-        this.resourceType = resourceType;
-        this.region = region;
-        this.info = info;
-    }
-
+    
 	/**
-	 * @return the info
+	 * @param key the key to set
+	 * @param value the value to set
 	 */
-	public String getInfo() {
-		return info;
+	public void addInfo(String key, String value) {
+		this.put(key, value);
+	}
+	
+	/**
+	 * @param pattern the pattern to search
+	 * @return true if pattern is found in one of the values
+	 */
+	public boolean containsPattern(String pattern) {
+		pattern = pattern.toLowerCase();
+		
+		for (String s : this.values()) {
+			if ((s != null) && s.toLowerCase().contains(pattern))
+				return true;
+		}
+		
+		return false;
 	}
 
+	/**
+	 * @return the name of an EC2 based app
+	 */
+	public String getAppName() {
+		if ((resourceType == AwsResourceType.EC2)
+				&& this.containsKey("Name")) {
+			String appName = this.get("Name").replace("SNAPSHOT", "");
+			
+			// app-zalanda-0.14 -> app-zalanda
+			String removeChars = "0123456789-._";
+			int i = appName.length();
+			
+			while ((i > 0) && removeChars.contains(String.valueOf(appName.charAt(i-1)))) {
+				i--;
+			}
+			
+			if (i < appName.length()) {
+				return appName.substring(0, i); 
+			}
+			
+			return appName;
+		}
+		
+		return null;
+	}
+	
 	/**
 	 * @return the name
 	 */
 	public String getName() {
-		return name;
+		if (name == null)
+			return "";
+		else 
+			return name;
 	}
 
 	/**
 	 * @return the owner
 	 */
 	public String getOwner() {
-		return owner;
+		if (owner == null)
+			return "";
+		else 
+			return owner;
 	}
 
 	/**
 	 * @return the region
 	 */
-	public String getRegion() {
+	public Regions getRegion() {
 		return region;
 	}
 
@@ -60,31 +107,33 @@ public class AwsResource {
 	}
 
 	/**
-	 * @param info the info to set
-	 */
-	public void setInfo(String info) {
-		this.info = info;
-	}
-
-	/**
 	 * @param name the name to set
 	 */
 	public void setName(String name) {
+		if (name == null)
+			name = "";
+		
 		this.name = name;
+		this.put("Name", name);
 	}
 
     /**
 	 * @param owner the owner to set
 	 */
 	public void setOwner(String owner) {
+		if (owner == null)
+			owner = "";
+
 		this.owner = owner;
+		this.put("Owner", owner);
 	}
 
     /**
 	 * @param region the region to set
 	 */
-	public void setRegion(String region) {
+	public void setRegion(Regions region) {
 		this.region = region;
+		this.put("Region", region.getName());
 	}
     
     /**
@@ -92,5 +141,15 @@ public class AwsResource {
 	 */
 	public void setResourceType(AwsResourceType resourceType) {
 		this.resourceType = resourceType;
+		this.put("ResourceType", resourceType.name());
 	}
+	
+	@Override
+	public int compareTo(AwsResource res) {
+		if (this.getResourceType() == res.getResourceType()) {
+			return this.getName().compareTo(res.getName());
+		} else {
+			return this.getResourceType().compareTo(res.getResourceType());
+		}
+	}	
 }

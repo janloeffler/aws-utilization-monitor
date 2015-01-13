@@ -1,6 +1,10 @@
+[![Build Status](https://travis-ci.org/zalando/aws-utilization-monitor.svg?branch=master)](https://travis-ci.org/zalando/aws-utilization-monitor)
+
 # AWS Utilization Monitor build & deploy guidelines
 
-This project show everything necessary, to deploy a fully working Java Spring web application to Amazon EC2 with the help of Docker and AWS Minion.
+The AWS Utilization Monitor is a RESTful service that scans AWS accounts for all used resources and generates a statistic for it. To get stats about several accounts you either change the AWS credentials file or deploy this service to each AWS account you want to monitor and collect data via its RESTful API.
+
+This project shows everything necessary, to deploy a fully working Java Spring web application to Amazon EC2 with the help of Docker and AWS Minion.
 
 # Further references
 
@@ -17,30 +21,17 @@ This project show everything necessary, to deploy a fully working Java Spring we
 
     $ sudo pip3 install --upgrade aws-minion
 
-# Login to AWS
+# Login to AWS by creating a valid aws credetials file in ~/.aws/credentials
 
-    $ alias awslogin="minion login -r PowerUser --overwrite-credentials"
+    $ alias awslogin="minion login -r 600231584188 --overwrite-credentials"
     $ awslogin
 
 # Prepare docker when using boot2docker on MacOS
 
     $ $(boot2docker shellinit)
-    $ VBoxManage controlvm boot2docker-vm natpf1 "awsutilizationmonitor,tcp,127.0.0.1,8080,,8080"
+    $ VBoxManage controlvm boot2docker-vm natpf1 "aws-utilization-monitor,tcp,127.0.0.1,8080,,8080"
 
-# Build the project
-
-    $ mvn clean package
-    $ docker build -t docker-registry2.hackweek.aws.zalando/awsutilizationmonitor:1.0 .
-    
-# Check that our Docker image works
-
-    $ docker run -p 8080:8080 -it docker-registry2.hackweek.aws.zalando/awsutilizationmonitor:1.0
-
-Visit [http://localhost:8080/](http://localhost:8080/)! Stop your server with **Ctrl+C**.
-
-# Deploy it in the cloud!
-
-In order to push you'll need to add our CA cert to the VM box:
+In order to push images to our Docker registry you'll need to add our CA cert to the VM box:
 
     $ boot2docker ssh
     $ sudo su
@@ -49,7 +40,20 @@ In order to push you'll need to add our CA cert to the VM box:
 
 Remember to perform this step after every restart of boot2docker.
 
-    $ docker push docker-registry2.hackweek.aws.zalando/awsutilizationmonitor:1.0
+# Build the project
+
+    $ mvn clean package
+    $ docker build -t docker-registry2.hackweek.aws.zalando/aws-utilization-monitor:1.0 .
+    
+# Check that our Docker image works
+
+    $ docker run -p 8080:8080 -it docker-registry2.hackweek.aws.zalando/aws-utilization-monitor:1.0
+
+Visit [http://localhost:8080/](http://localhost:8080/)! Stop your server with **Ctrl+C**.
+
+# Deploy it in the cloud!
+
+    $ docker push docker-registry2.hackweek.aws.zalando/aws-utilization-monitor:1.0
 
 If you did not set up AWS Minion before, go and visit "How to use the AWS Minion tool":
 [https://techwiki.zalando.net/display/ZHW/AWS](https://techwiki.zalando.net/display/ZHW/AWS)
@@ -57,24 +61,24 @@ If you did not set up AWS Minion before, go and visit "How to use the AWS Minion
 Create your new application (if you chose not to rename this project, this will already exist and you can skip this
 step):
 
-    $ minion app create awsutilizationmonitor.yaml
+    $ minion app create aws-utilization-monitor.yaml
 
 Add our Docker image as a new version to our application:
 
-    $ minion version create awsutilizationmonitor 1.0 docker-registry2.hackweek.aws.zalando/awsutilizationmonitor:1.0
+    $ minion version create aws-utilization-monitor 1.0 docker-registry2.hackweek.aws.zalando/aws-utilization-monitor:1.0
 
 This step might take a long(tm) time (minutes). Afterwards you will be able to directly go to your deployed version:
-[https://awsutilizationmonitor-1.0.hackweek.aws.zalando/](https://awsutilizationmonitor-1.0.hackweek.aws.zalando/)
+[https://aws-utilization-monitor-1.0.hackweek.aws.zalando/](https://aws-utilization-monitor-1.0.hackweek.aws.zalando/)
 
 The application's main domain will still not show the deployed version. Now you can switch traffic of your main domain
 to the new version:
 
-    $ minion version traffic awsutilizationmonitor 1.0 100
+    $ minion version traffic aws-utilization-monitor 1.0 100
 
-Have fun with [https://awsutilizationmonitor.hackweek.aws.zalando/](https://awsutilizationmonitor.hackweek.aws.zalando/)!
+Have fun with [https://aws-utilization-monitor.hackweek.aws.zalando/](https://aws-utilization-monitor.hackweek.aws.zalando/)!
 
-    $ awsutilizationmonitor.platform.aws.zalando
+    $ aws-utilization-monitor.platform.aws.zalando
     
 Observe your logs (remember that the Load Balancer checks spam your HTTP):
 
-    $ minion version logs awsutilizationmonitor 1.0
+    $ minion version logs aws-utilization-monitor 1.0

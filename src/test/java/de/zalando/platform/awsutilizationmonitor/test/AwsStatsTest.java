@@ -8,6 +8,8 @@ import static org.junit.Assert.assertTrue;
 
 import org.junit.Test;
 
+import com.amazonaws.regions.Regions;
+
 import de.zalando.platform.awsutilizationmonitor.api.AwsResource;
 import de.zalando.platform.awsutilizationmonitor.api.AwsResourceType;
 import de.zalando.platform.awsutilizationmonitor.api.AwsStats;
@@ -38,10 +40,19 @@ public class AwsStatsTest {
 	}
 
 	@Test
-	public void testInsertData() {		
-		AwsResource res = new AwsResource("Testname", "Testowner", AwsResourceType.Redshift, "EU-WEST-2", "Infotext");
-		AwsStats stats = new AwsStats();
+	public void testGetOwnersData() {		
+		AwsResource res = new AwsResource("Testname", "Testowner", AwsResourceType.Redshift, Regions.EU_WEST_1);
+		AwsStats stats = new AwsStats();		
+		stats.add(res);
 		
+		assertTrue(stats.getOwners().length == 1);
+		assertTrue(stats.getOwners()[0] == res.getOwner());
+	}
+
+	@Test
+	public void testInsertData() {		
+		AwsResource res = new AwsResource("Testname", "Testowner", AwsResourceType.Redshift, Regions.EU_WEST_1);
+		AwsStats stats = new AwsStats();		
 		stats.add(res);
 		
 		assertTrue(stats.getAllResources().length == 1);
@@ -58,9 +69,9 @@ public class AwsStatsTest {
 		stats.generateSampleData(100);
 		
 		assertTrue(stats.getAllResources().length > 10);
-		assertTrue(stats.searchResource("FeedTheWorld").length > 0);
-		assertTrue(stats.searchResource("Mickey Mouse").length > 0);
-		assertTrue(stats.searchResource("bucket_").length > 0);
-		assertTrue(stats.searchResource(AwsResourceType.ElasticTranscoder.toString()).length > 0);		
+		assertTrue(stats.searchResources("FeedTheWorld").length > 0);
+		assertTrue(stats.searchResources("Mickey Mouse").length > 0);
+		assertTrue(stats.searchResources("bucket_").length > 0);
+		assertTrue(stats.searchResources(AwsResourceType.ElasticTranscoder.toString()).length > 0);		
 	}
 }

@@ -15,6 +15,7 @@ public enum AwsResourceType {
 	ElastiCache,
 	ElasticMapReduce,
 	ElasticTranscoder,
+	Glacier,
 	Kinesis,
 	RDS,
 	Redshift,
