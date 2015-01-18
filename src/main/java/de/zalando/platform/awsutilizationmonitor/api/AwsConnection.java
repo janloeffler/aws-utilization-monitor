@@ -22,8 +22,6 @@ import com.amazonaws.services.ec2.AmazonEC2;
 import com.amazonaws.services.ec2.AmazonEC2Client;
 import com.amazonaws.services.ec2.model.DescribeAvailabilityZonesResult;
 import com.amazonaws.services.ec2.model.DescribeInstancesResult;
-import com.amazonaws.services.ec2.model.DescribeSecurityGroupsResult;
-import com.amazonaws.services.ec2.model.DescribeVolumesResult;
 import com.amazonaws.services.ec2.model.Instance;
 import com.amazonaws.services.ec2.model.Reservation;
 import com.amazonaws.services.ec2.model.Tag;
@@ -59,6 +57,11 @@ import com.amazonaws.services.simpledb.model.DomainMetadataRequest;
 import com.amazonaws.services.simpledb.model.DomainMetadataResult;
 import com.amazonaws.services.simpledb.model.ListDomainsRequest;
 import com.amazonaws.services.simpledb.model.ListDomainsResult;
+import com.amazonaws.services.sns.AmazonSNS;
+import com.amazonaws.services.sns.AmazonSNSClient;
+import com.amazonaws.services.sns.model.PlatformApplication;
+import com.amazonaws.services.sns.model.Subscription;
+import com.amazonaws.services.sqs.AmazonSQSClient;
 
 /**
  * @author jloeffler
@@ -82,8 +85,30 @@ import com.amazonaws.services.simpledb.model.ListDomainsResult;
  *
  *  - A subscription to Amazon S3. You can sign up for S3 at:
  *       http://aws.amazon.com/s3/
+ *       
+ * Before running the code:
+ *      Fill in your AWS access credentials in the provided credentials
+ *      file template, and be sure to move the file to the default location
+ *      (~/.aws/credentials) where the sample code will load the
+ *      credentials from.
+ *      https://console.aws.amazon.com/iam/home?#security_credential
+ *
+ * WANRNING:
+ *      To avoid accidental leakage of your credentials, DO NOT keep
+ *      the credentials file in your source directory.
+ *             
  */
 public final class AwsConnection {
+	public static final Logger LOG = LoggerFactory.getLogger(AwsConnection.class);  
+
+	// set caching time to 1 hour - afterwards the aws api will be called again to collect resource usage
+    private final static int CACHE_DURATION = 60 * 60 * 1000;
+
+    private static AwsConnection instance = null;
+ 
+	private static DateTime lastCollectTime = DateTime.now();
+	private static Object lockObject = new Object(); 	
+	
     /**
 	 * @return instance of connection to AWS that caches results set for a certain time.
 	 */
@@ -96,102 +121,6 @@ public final class AwsConnection {
 		
 		return instance;
 	}
-
-	/*
-     * Before running the code:
-     *      Fill in your AWS access credentials in the provided credentials
-     *      file template, and be sure to move the file to the default location
-     *      (~/.aws/credentials) where the sample code will load the
-     *      credentials from.
-     *      https://console.aws.amazon.com/iam/home?#security_credential
-     *
-     * WANRNING:
-     *      To avoid accidental leakage of your credentials, DO NOT keep
-     *      the credentials file in your source directory.
-     */
-    
-    public static final Logger LOG = LoggerFactory.getLogger(AwsConnection.class);
- 
-	// set caching time to 1 hour - afterwards the aws api will be called again to collect resource usage
-    private final static int CACHE_DURATION = 60 * 60 * 1000;
-	private static AwsConnection instance = null; 	
-	private static DateTime lastCollectTime = DateTime.now();  
-	
-    private static Object lockObject = new Object();
-	
-	private AwsStats stats = null;    
-	
-    /**
-     * Clear the cache with statistics about resource usage so that next request of getStats() loads resource information directly from AWS again.
-     */
-    public void clearCache() {
-        this.stats.clear();
-        this.stats = null;
-        LOG.info("Cache cleared");
-    }	
-	
-    /**
-     * Amazon EC2
-     *
-     * The AWS EC2 client allows you to create, delete, and administer
-     * instances programmatically.
-     *
-     * In this sample, we use an EC2 client to get a list of all the
-     * availability zones, and all instances sorted by reservation id.
-     */
-	public void collectDataFromAws() {
-        LOG.info("Login to AWS and collect resource list");
-        
-        AwsStats currentStats = new AwsStats(); 
-        
-        try {
-	        /*
-	         * The ProfileCredentialsProvider will return your [default]
-	         * credential profile by reading from the credentials file located at
-	         * (~/.aws/credentials).
-	         */
-	        AWSCredentials credentials = null;
-	        try {
-	            credentials = new ProfileCredentialsProvider().getCredentials();
-	        } catch (Exception e) {
-	            throw new AmazonClientException(
-	                    "Cannot load the credentials from the credential profiles file. " +
-	                    "Please make sure that your credentials file is at the correct " +
-	                    "location (~/.aws/credentials), and is in valid format.",
-	                    e);
-	        }
-	    	        
-	    	lastCollectTime = DateTime.now();
-			
-	    	ArrayList<Regions> regions = new ArrayList<Regions>();
-	    	regions.add(Regions.EU_WEST_1);
-	    	regions.add(Regions.EU_CENTRAL_1);
-	    	// regions.add(Regions.US_WEST_1);
-	    
-	    	for (Regions region : regions) {
-		    	collectEC2Data(currentStats, credentials, region);
-		    //	collectS3Data(currentStats, credentials, region);
-		    	collectSimpleDBData(currentStats, credentials, region);
-		    	collectDynamoDBData(currentStats, credentials, region);	
-		    	collectElastiCacheData(currentStats, credentials, region);	
-		    	collectElasticTranscoderData(currentStats, credentials, region);	
-		    	collectKinesisData(currentStats, credentials, region);	
-		    	collectRedshiftData(currentStats, credentials, region);	
-		    	collectRDSData(currentStats, credentials, region);	
-		    	collectElasticTranscoderData(currentStats, credentials, region);	
-		    	collectGlacierData(currentStats, credentials, region);	
-		    	collectElasticMapReduceData(currentStats, credentials, region);
-	    	}
-
-	    	// scan S3 only once
-	    	collectS3Data(currentStats, credentials, Regions.DEFAULT_REGION);
-	    	
-        } catch (Exception ex) {
-        	LOG.error("Connect to AWS failed: " + ex.getMessage());
-        }		      
-                
-        this.stats = currentStats;
-    }
 	
 	/**
 	 * Collect data for DynamoDB.
@@ -199,7 +128,7 @@ public final class AwsConnection {
 	 * @param stats current statistics object.
 	 * @param credentials currently used credentials object.
 	 */
-	private void collectDynamoDBData(AwsStats stats, AWSCredentials credentials, Regions region) {
+	public static void scanDynamoDB(AwsStats stats, AWSCredentials credentials, Regions region) {
         LOG.debug("Scan for DynamoDB in region " + region.getName());
 
 		/*
@@ -217,19 +146,19 @@ public final class AwsConnection {
              	stats.add(res);                
             }
 
-            LOG.info(totalItems + " DynamoDB tables");
+            LOG.info(totalItems + " DynamoDB tables in region " + region.getName());
         } catch (AmazonServiceException ase) {
-        	LOG.error("Exception of AmazonDynamoDB: " + ase.getMessage());
+        	LOG.error("Exception of DynamoDB: " + ase.getMessage());
         }		
-	}
+	}    
 	
-	/**
+    /**
 	 * Collect data for EC2.
 	 * 
 	 * @param stats current statistics object.
 	 * @param credentials currently used credentials object.
 	 */
-	private void collectEC2Data(AwsStats stats, AWSCredentials credentials, Regions region) {
+	public static void scanEC2(AwsStats stats, AWSCredentials credentials, Regions region) {
         LOG.debug("Scan for EC2 in region " + region.getName());
 
         try {
@@ -247,11 +176,11 @@ public final class AwsConnection {
             //DescribeImagesResult imagesResult = ec2.describeImages();
             //LOG.info(imagesResult.getImages().size() + " EC2 images");
            
-            DescribeSecurityGroupsResult securityGroupsResult = ec2.describeSecurityGroups();
-            LOG.info(securityGroupsResult.getSecurityGroups().size() + " EC2 security groups");
+            //DescribeSecurityGroupsResult securityGroupsResult = ec2.describeSecurityGroups();
+            //LOG.info(securityGroupsResult.getSecurityGroups().size() + " EC2 security groups in region " + region.getName());
             
-            DescribeVolumesResult volumesResult = ec2.describeVolumes();
-            LOG.info(volumesResult.getVolumes().size() + " EC2 volumes");
+            //DescribeVolumesResult volumesResult = ec2.describeVolumes();
+            //LOG.info(volumesResult.getVolumes().size() + " EC2 volumes in region " + region.getName());
             
             DescribeInstancesResult describeInstancesResult = ec2.describeInstances();
             List<Reservation> reservations = describeInstancesResult.getReservations();
@@ -298,22 +227,22 @@ public final class AwsConnection {
             	totalInstances += instancesAdded;
             }
 
-            LOG.info(totalInstances + " EC2 instances running");
+            LOG.info(totalInstances + " EC2 instances running in region " + region.getName());
         } catch (AmazonServiceException ase) {
-        	LOG.error("Exception of AmazonEC2: " + ase.getMessage());
+        	LOG.error("Exception of EC2: " + ase.getMessage());
         }		
 	     catch (Exception ex) {
-	    	LOG.error("Exception of AmazonEC2: " + ex.getMessage());
+	    	LOG.error("Exception of EC2: " + ex.getMessage());
 	    }		
-	}
+	}	
 	
-	/**
+    /**
 	 * Collect data for ElastiCache.
 	 * 
 	 * @param stats current statistics object.
 	 * @param credentials currently used credentials object.
 	 */
-	private void collectElastiCacheData(AwsStats stats, AWSCredentials credentials, Regions region) {
+	public static void scanElastiCache(AwsStats stats, AWSCredentials credentials, Regions region) {
 		if (region == Regions.EU_CENTRAL_1)
 			return;
 		
@@ -337,19 +266,19 @@ public final class AwsConnection {
              	stats.add(res);                
             }
 
-            LOG.info(totalItems + " ElastiCache");
+            LOG.info(totalItems + " ElastiCache in region " + region.getName());
         } catch (AmazonServiceException ase) {
-        	LOG.error("Exception of AmazonElastiCache: " + ase.getMessage());
+        	LOG.error("Exception of ElastiCache: " + ase.getMessage());
         }		
 	}
-	
+
 	/**
 	 * Collect data for ElasticMapReduce.
 	 * 
 	 * @param stats current statistics object.
 	 * @param credentials currently used credentials object.
 	 */
-	private void collectElasticMapReduceData(AwsStats stats, AWSCredentials credentials, Regions region) {
+	public static void scanElasticMapReduce(AwsStats stats, AWSCredentials credentials, Regions region) {
         LOG.debug("Scan for MapReduce in region " + region.getName());
 
 		try {
@@ -363,19 +292,19 @@ public final class AwsConnection {
              	stats.add(new AwsResource(cs.getName(), "", AwsResourceType.ElasticMapReduce, region));                
             }
 
-            LOG.info(totalItems + " ElasticMapReduce clusters");
+            LOG.info(totalItems + " ElasticMapReduce clusters in region " + region.getName());
         } catch (AmazonServiceException ase) {
-        	LOG.error("Exception of AmazonElasticMapReduce: " + ase.getMessage());
+        	LOG.error("Exception of ElasticMapReduce: " + ase.getMessage());
         }		
-	}
-
+	}	
+	
 	/**
 	 * Collect data for ElasticTranscoder.
 	 * 
 	 * @param stats current statistics object.
 	 * @param credentials currently used credentials object.
 	 */
-	private void collectElasticTranscoderData(AwsStats stats, AWSCredentials credentials, Regions region) {
+	public static void scanElasticTranscoder(AwsStats stats, AWSCredentials credentials, Regions region) {
 		if (region == Regions.EU_CENTRAL_1)
 			return;
 
@@ -394,19 +323,19 @@ public final class AwsConnection {
              	stats.add(res);                
             }
 
-            LOG.info(totalItems + " Elastic Transcoder pipelines");
+            LOG.info(totalItems + " Elastic Transcoder pipelines in region " + region.getName());
         } catch (AmazonServiceException ase) {
-        	LOG.error("Exception of AmazonElasticTranscoder: " + ase.getMessage());
+        	LOG.error("Exception of ElasticTranscoder: " + ase.getMessage());
         }		
 	}
-
+	
 	/**
 	 * Collect data for Glacier.
 	 * 
 	 * @param stats current statistics object.
 	 * @param credentials currently used credentials object.
 	 */
-	private void collectGlacierData(AwsStats stats, AWSCredentials credentials, Regions region) {
+	public static void scanGlacier(AwsStats stats, AWSCredentials credentials, Regions region) {
         LOG.debug("Scan for Glacier in region " + region.getName());
 
         try {
@@ -425,19 +354,19 @@ public final class AwsConnection {
 	    		totalItems++;
 	    	}
 
-            LOG.info(totalItems + " Glacier");
+            LOG.info(totalItems + " Glacier in region " + region.getName());
         } catch (AmazonServiceException ase) {
-        	LOG.error("Exception of AmazonGlacier: " + ase.getMessage());
+        	LOG.error("Exception of Glacier: " + ase.getMessage());
         }		
 	}
-
+	
 	/**
 	 * Collect data for Kinesis.
 	 * 
 	 * @param stats current statistics object.
 	 * @param credentials currently used credentials object.
 	 */
-	private void collectKinesisData(AwsStats stats, AWSCredentials credentials, Regions region) {
+	public static void scanKinesis(AwsStats stats, AWSCredentials credentials, Regions region) {
         LOG.debug("Scan for Kinesis in region " + region.getName());
 
         try {
@@ -451,19 +380,19 @@ public final class AwsConnection {
              	stats.add(new AwsResource(streamName, "", AwsResourceType.Kinesis, region));                
             }
 
-            LOG.info(totalItems + " Kinesis streams");
+            LOG.info(totalItems + " Kinesis streams in region " + region.getName());
         } catch (AmazonServiceException ase) {
-        	LOG.error("Exception of AmazonKinesis: " + ase.getMessage());
+        	LOG.error("Exception of Kinesis: " + ase.getMessage());
         }		
 	}
-
+	
 	/**
 	 * Collect data for RDS.
 	 * 
 	 * @param stats current statistics object.
 	 * @param credentials currently used credentials object.
 	 */
-	private void collectRDSData(AwsStats stats, AWSCredentials credentials, Regions region) {
+	public static void scanRDS(AwsStats stats, AWSCredentials credentials, Regions region) {
         LOG.debug("Scan for RDS in region " + region.getName());
 
         try {
@@ -479,9 +408,9 @@ public final class AwsConnection {
             	stats.add(res);                
             }
 
-            LOG.info(totalItems + " RDS instances");
+            LOG.info(totalItems + " RDS instances in region " + region.getName());
         } catch (AmazonServiceException ase) {
-        	LOG.error("Exception of AmazonRDS: " + ase.getMessage());
+        	LOG.error("Exception of RDS: " + ase.getMessage());
         }		
 	}
 
@@ -491,7 +420,7 @@ public final class AwsConnection {
 	 * @param stats current statistics object.
 	 * @param credentials currently used credentials object.
 	 */
-	private void collectRedshiftData(AwsStats stats, AWSCredentials credentials, Regions region) {
+	public static void scanRedshift(AwsStats stats, AWSCredentials credentials, Regions region) {
         LOG.debug("Scan for Redshift in region " + region.getName());
 
         try {
@@ -507,10 +436,64 @@ public final class AwsConnection {
              	stats.add(res);                
             }
 
-            LOG.info(totalItems + " Redshift cluster");
+            LOG.info(totalItems + " Redshift cluster in region " + region.getName());
         } catch (AmazonServiceException ase) {
-        	LOG.error("Exception of AmazonRedshift: " + ase.getMessage());
+        	LOG.error("Exception of Redshift: " + ase.getMessage());
         }		
+	}
+
+	/**
+	 * Collect data for SimpleDB.
+	 * 
+	 * @param stats current statistics object.
+	 * @param credentials currently used credentials object.
+	 * @param region region in which the resources should be searched
+	 * @param resourceType Type of resource to be searched
+	 */
+	public static void scanResources(AwsStats stats, AWSCredentials credentials, Regions region, AwsResourceType resourceType) {		
+		switch(resourceType) {
+			case DynamoDB:
+				scanDynamoDB(stats, credentials, region);
+				break;
+			case EC2:
+				scanEC2(stats, credentials, region);
+				break;
+			case ElastiCache:
+				scanElastiCache(stats, credentials, region);
+				break;
+			case ElasticMapReduce:
+				scanElasticMapReduce(stats, credentials, region);
+				break;
+			case ElasticTranscoder:
+				scanElasticTranscoder(stats, credentials, region);
+				break;
+			case Glacier:
+				scanGlacier(stats, credentials, region);
+				break;
+			case Kinesis:
+				scanKinesis(stats, credentials, region);
+				break;
+			case RDS:
+				scanRDS(stats, credentials, region);
+				break;
+			case Redshift:
+				scanRedshift(stats, credentials, region);
+				break;
+			case S3:
+				scanS3(stats, credentials, region);
+				break;
+			case SNS:
+				scanSNS(stats, credentials, region);
+				break;
+			case SQS:
+				scanSQS(stats, credentials, region);
+				break;
+			case SimpleDB:
+				scanSimpleDB(stats, credentials, region);
+				break;
+			case Unknown:
+				break;
+		}
 	}
 
 	/**
@@ -519,7 +502,7 @@ public final class AwsConnection {
 	 * @param stats current statistics object.
 	 * @param credentials currently used credentials object.
 	 */
-	private void collectS3Data(AwsStats stats, AWSCredentials credentials, Regions region) {
+	public static void scanS3(AwsStats stats, AWSCredentials credentials, Regions region) {
         LOG.debug("Scan for S3 in region " + region.getName());
 
         /*
@@ -577,7 +560,7 @@ public final class AwsConnection {
              * either found it invalid or encountered an error trying to execute
              * it.
              */
-        	LOG.error("Exception of AmazonS3: " + ase.getMessage());
+        	LOG.error("Exception of S3: " + ase.getMessage());
         } catch (AmazonClientException ace) {
             /*
              * AmazonClientExceptions represent an error that occurred inside
@@ -587,7 +570,7 @@ public final class AwsConnection {
              * connect to AWS to execute a request and will throw an
              * AmazonClientException.
              */
-        	LOG.error("Exception of AmazonS3: " + ace.getMessage());
+        	LOG.error("Exception of S3: " + ace.getMessage());
         }  
 	}
 
@@ -597,7 +580,7 @@ public final class AwsConnection {
 	 * @param stats current statistics object.
 	 * @param credentials currently used credentials object.
 	 */
-	private void collectSimpleDBData(AwsStats stats, AWSCredentials credentials, Regions region) {		
+	public static void scanSimpleDB(AwsStats stats, AWSCredentials credentials, Regions region) {		
 		if (region == Regions.EU_CENTRAL_1)
 			return;
 
@@ -631,15 +614,172 @@ public final class AwsConnection {
                 stats.add(res);                
             }
 
-            LOG.info(sdbResult.getDomainNames().size() + " SimpleDB domains containing a total of " + totalItems + " items");
+            LOG.info(sdbResult.getDomainNames().size() + " SimpleDB domains containing a total of " + totalItems + " items in region " + region.getName());
         } catch (AmazonServiceException ase) {
-        	LOG.error("Exception of AmazonSimpleDB: " + ase.getMessage());
+        	LOG.error("Exception of SimpleDB: " + ase.getMessage());
 //        } catch (java.net.UnknownHostException uhe) {
         } catch (Exception ex) { 
-        	LOG.error("Exception of AmazonSimpleDB: " + ex.getMessage());
+        	LOG.error("Exception of SimpleDB: " + ex.getMessage());
         }
 	}
-		
+
+	/**
+	 * Collect data for SNS.
+	 * 
+	 * @param stats current statistics object.
+	 * @param credentials currently used credentials object.
+	 */
+	public static void scanSNS(AwsStats stats, AWSCredentials credentials, Regions region) {
+        LOG.debug("Scan for SNS in region " + region.getName());
+
+        try {
+	    	AmazonSNS sns = new AmazonSNSClient(credentials);
+	    	sns.setRegion(Region.getRegion(region));
+	    	
+	    	int totalApps = 0;
+	    	for (PlatformApplication app : sns.listPlatformApplications().getPlatformApplications()) {
+	            AwsResource res = new AwsResource(app.getPlatformApplicationArn(), "", AwsResourceType.SNS, region);
+	            stats.add(res);
+	            totalApps++;
+	    	}	 
+	    	
+            LOG.info(totalApps + " SNS applications in region " + region.getName());
+            
+	    	int totalSubscriptions = 0;
+            for (Subscription subscription : sns.listSubscriptions().getSubscriptions()) {     	
+	            AwsResource res = new AwsResource(subscription.getSubscriptionArn(), subscription.getOwner(), AwsResourceType.SNS, region);
+	            res.addInfo("Endpoint", subscription.getEndpoint());
+	            res.addInfo("TopicArn", subscription.getTopicArn());
+	            stats.add(res);
+	            totalSubscriptions++;
+            }
+
+            LOG.info(totalSubscriptions + " SNS subscriptions in region " + region.getName());
+            
+        } catch (AmazonServiceException ase) {
+        	LOG.error("Exception of SNS: " + ase.getMessage());
+        } catch (Exception ex) { 
+        	LOG.error("Exception of SNS: " + ex.getMessage());
+        }        
+	}
+
+	/**
+	 * Collect data for SQS.
+	 * 
+	 * @param stats current statistics object.
+	 * @param credentials currently used credentials object.
+	 */
+	public static void scanSQS(AwsStats stats, AWSCredentials credentials, Regions region) {
+        LOG.debug("Scan for SQS in region " + region.getName());
+
+        try {
+	    	AmazonSQSClient sqs = new AmazonSQSClient(credentials);
+	    	sqs.setRegion(Region.getRegion(region));
+	    	
+	    	int totalQueues = 0;
+	    	for (String queueUrl : sqs.listQueues().getQueueUrls()) {
+	            AwsResource res = new AwsResource(queueUrl, "", AwsResourceType.SQS, region);
+	            stats.add(res);
+	            totalQueues++;	    	
+	    	}
+	    	
+            LOG.info(totalQueues + " SQS queues in region " + region.getName());
+
+        } catch (AmazonServiceException ase) {
+        	LOG.error("Exception of SQS: " + ase.getMessage());
+        } catch (Exception ex) { 
+        	LOG.error("Exception of SQS: " + ex.getMessage());
+        }        
+	}
+
+	private AwsStats stats = null;
+
+	/**
+     * Clear the cache with statistics about resource usage so that next request of getStats() loads resource information directly from AWS again.
+     */
+    public void clearCache() {
+        this.stats.clear();
+        this.stats = null;
+        LOG.info("Cache cleared");
+    }
+	
+	/**
+     * Amazon EC2
+     *
+     * The AWS EC2 client allows you to create, delete, and administer
+     * instances programmatically.
+     *
+     * In this sample, we use an EC2 client to get a list of all the
+     * availability zones, and all instances sorted by reservation id.
+     */
+	public void collectDataFromAws() {
+        LOG.info("Login to AWS and collect resource list");
+        
+        DateTime startTime = DateTime.now();
+        AwsStats currentStats = new AwsStats(); 
+    	ArrayList<Thread> threads = new ArrayList<Thread>();
+        AWSCredentials credentials = null;
+    	lastCollectTime = DateTime.now();
+        
+        try {
+	        /*
+	         * The ProfileCredentialsProvider will return your [default]
+	         * credential profile by reading from the credentials file located at
+	         * (~/.aws/credentials).
+	         */
+	        try {
+	            credentials = new ProfileCredentialsProvider().getCredentials();
+	        } catch (Exception e) {
+	            throw new AmazonClientException(
+	                    "Cannot load the credentials from the credential profiles file. " +
+	                    "Please make sure that your credentials file is at the correct " +
+	                    "location (~/.aws/credentials), and is in valid format.",
+	                    e);
+	        }
+	    	        			
+	    	ArrayList<Regions> regions = new ArrayList<Regions>();
+	    	regions.add(Regions.EU_WEST_1);
+	    	regions.add(Regions.EU_CENTRAL_1);
+	    	// regions.add(Regions.US_WEST_1);
+	    	
+	    	ArrayList<AwsResourceType> resourceTypes = new ArrayList<AwsResourceType>();
+	    	for (AwsResourceType resourceType : AwsResourceType.values()) {
+	    		
+	    		// exclude S3 and scan it afterwards separately
+	    		if ((resourceType != AwsResourceType.Unknown)
+	    				&& (resourceType != AwsResourceType.S3)) {
+	    			resourceTypes.add(resourceType);
+	    		}
+	    	}
+
+	    	// scan S3 only once
+			AwsCollectorThread thread = new AwsCollectorThread(currentStats, credentials, Regions.DEFAULT_REGION, AwsResourceType.S3);
+			threads.add(thread);
+			thread.start();
+	    	
+			// scan each resource type in each region
+	    	for (Regions region : regions) {
+	    		for (AwsResourceType resourceType : resourceTypes) {
+	    			thread = new AwsCollectorThread(currentStats, credentials, region, resourceType);
+	    			threads.add(thread);
+	    			thread.start();
+	    		}
+	    	}
+
+	    	// wait for all collection threads to be finished
+	    	for (Thread t : threads) {
+	    	    t.join();
+	    	}
+	    	
+        } catch (Exception ex) {
+        	LOG.error("Connect to AWS failed: " + ex.getMessage());
+        }		      
+              
+        this.stats = currentStats;
+        DateTime duration = DateTime.now().minus(startTime.getMillis());
+        LOG.info("Collected " + currentStats.getSummary().getResources() + " resources in " + duration.getMillis() + " ms");
+    }
+	
     /**
      * @return filled statistics object containing all used resources.
      */

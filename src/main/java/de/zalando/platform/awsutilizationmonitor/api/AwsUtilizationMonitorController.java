@@ -14,8 +14,8 @@ import org.springframework.web.bind.annotation.RestController;
 import com.amazonaws.regions.Regions;
 
 @RestController
-final class awsutilizationmonitorController {
-    public static final Logger LOG = LoggerFactory.getLogger(awsutilizationmonitorController.class);
+final class AwsUtilizationMonitorController {
+    public static final Logger LOG = LoggerFactory.getLogger(AwsUtilizationMonitorController.class);
 
     @RequestMapping("/apps/")
     @ResponseBody

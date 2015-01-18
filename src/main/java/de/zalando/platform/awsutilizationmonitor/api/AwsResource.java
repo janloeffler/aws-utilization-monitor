@@ -52,24 +52,32 @@ public class AwsResource extends Hashtable<String, String> implements Comparable
 	public String getAppName() {
 		if ((resourceType == AwsResourceType.EC2)
 				&& this.containsKey("Name")) {
-			String appName = this.get("Name").replace("SNAPSHOT", "");
-			
-			// app-zalanda-0.14 -> app-zalanda
-			String removeChars = "0123456789-._";
-			int i = appName.length();
-			
-			while ((i > 0) && removeChars.contains(String.valueOf(appName.charAt(i-1)))) {
-				i--;
-			}
-			
-			if (i < appName.length()) {
-				return appName.substring(0, i); 
-			}
-			
-			return appName;
+			return RemoveVersionNumber(this.get("Name"));
+		} else {		
+			return null;
+		}
+	}
+
+	/**
+	 * @param appName Name to convert into app name by removing version information.
+	 * @return the app name without version numbers.
+	 */
+	public static String RemoveVersionNumber(String appName) {
+		appName = appName.replace("SNAPSHOT", "");
+		
+		// app-zalanda-0.14 -> app-zalanda
+		String removeChars = "0123456789-._";
+		int i = appName.length();
+		
+		while ((i > 0) && removeChars.contains(String.valueOf(appName.charAt(i-1)))) {
+			i--;
 		}
 		
-		return null;
+		if (i < appName.length()) {
+			return appName.substring(0, i); 
+		}
+		
+		return appName;
 	}
 	
 	/**
