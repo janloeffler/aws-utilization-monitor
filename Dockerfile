@@ -1,4 +1,4 @@
-FROM docker-registry2.hackweek.aws.zalando/zalando-java:8u25-1
+FROM zalando/openjdk:8u40-b09-1
 
 MAINTAINER Jan Löffler <jan.loeffler@zalando.de>
 
