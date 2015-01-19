@@ -20,6 +20,8 @@ import de.zalando.platform.awsutilizationmonitor.api.AwsStats;
  */
 public class AwsStatsTest {
 
+	private static AwsResource defaultResource = new AwsResource("Testname", "Testowner", AwsResourceType.Redshift, Regions.EU_WEST_1);
+	
 	@Test
 	public void testClearData() {		
 		AwsStats stats = new AwsStats();
@@ -40,8 +42,8 @@ public class AwsStatsTest {
 	}
 
 	@Test
-	public void testGetOwnersData() {		
-		AwsResource res = new AwsResource("Testname", "Testowner", AwsResourceType.Redshift, Regions.EU_WEST_1);
+	public void testGetOwners() {		
+		AwsResource res = defaultResource;
 		AwsStats stats = new AwsStats();		
 		stats.add(res);
 		
@@ -50,8 +52,28 @@ public class AwsStatsTest {
 	}
 
 	@Test
+	public void testGetRegions() {		
+		AwsResource res = defaultResource;
+		AwsStats stats = new AwsStats();		
+		stats.add(res);
+		
+		assertTrue(stats.getRegions().length == 1);
+		assertTrue(stats.getRegions()[0] == res.getRegion());
+	}
+
+	@Test
+	public void testGetResourceTypes() {		
+		AwsResource res = defaultResource;
+		AwsStats stats = new AwsStats();		
+		stats.add(res);
+		
+		assertTrue(stats.getUsedResourceTypes().length == 1);
+		assertTrue(stats.getUsedResourceTypes()[0] == res.getResourceType());
+	}
+
+	@Test
 	public void testInsertData() {		
-		AwsResource res = new AwsResource("Testname", "Testowner", AwsResourceType.Redshift, Regions.EU_WEST_1);
+		AwsResource res = defaultResource;
 		AwsStats stats = new AwsStats();		
 		stats.add(res);
 		
@@ -63,7 +85,21 @@ public class AwsStatsTest {
 	}
 
 	@Test
-	public void testSearchData() {		
+	public void testRemoveVersionNumber() {
+		assertTrue(AwsResource.RemoveVersionNumber("").equals(""));
+		assertTrue(AwsResource.RemoveVersionNumber("myApp").equals("myApp"));
+		assertTrue(AwsResource.RemoveVersionNumber("myApp1.0").equals("myApp"));
+		assertTrue(AwsResource.RemoveVersionNumber("myApp-1.0").equals("myApp"));
+		assertTrue(AwsResource.RemoveVersionNumber("myApp-1.0-SNAPSHOT").equals("myApp"));
+		assertTrue(AwsResource.RemoveVersionNumber("myApp1.0.SNAPSHOT").equals("myApp"));
+		assertTrue(AwsResource.RemoveVersionNumber("myApp1.0.2.100").equals("myApp"));
+		assertTrue(AwsResource.RemoveVersionNumber("myApp-1.0.0.444").equals("myApp"));
+		assertTrue(AwsResource.RemoveVersionNumber("123myApp").equals("123myApp"));
+		assertTrue(AwsResource.RemoveVersionNumber("123-myApp-2").equals("123-myApp"));
+	}
+	
+	@Test
+	public void testSearch() {		
 		AwsStats stats = new AwsStats();
 		
 		stats.generateSampleData(100);

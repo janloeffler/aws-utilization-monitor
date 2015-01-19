@@ -5,7 +5,7 @@ import java.util.Hashtable;
 import com.amazonaws.regions.Regions;
 
 public class AwsResource extends Hashtable<String, String> implements Comparable<AwsResource> {
-    
+   
 	private static final long serialVersionUID = 1L;
 	private String name = "";
     private String owner = "";
@@ -63,10 +63,10 @@ public class AwsResource extends Hashtable<String, String> implements Comparable
 	 * @return the app name without version numbers.
 	 */
 	public static String RemoveVersionNumber(String appName) {
-		appName = appName.replace("SNAPSHOT", "");
-		
+		appName = appName.replace("SNAPSHOT", "").replace("snapshot", "");
+
 		// app-zalanda-0.14 -> app-zalanda
-		String removeChars = "0123456789-._";
+		String removeChars = "0123456789-._ ";
 		int i = appName.length();
 		
 		while ((i > 0) && removeChars.contains(String.valueOf(appName.charAt(i-1)))) {
