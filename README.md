@@ -17,7 +17,7 @@ This project shows everything necessary, to deploy a fully working Java Spring w
 * Docker (see Boot2Docker for Mac users)
 * AWS Minion (https://github.com/zalando/aws-minion)
 
-# Make sure aws-minion is uptodate
+# Make sure aws-minion is up-to-date
 
     $ sudo pip3 install --upgrade aws-minion
 
@@ -35,25 +35,29 @@ In order to push images to our Docker registry you'll need to add our CA cert to
 
     $ boot2docker ssh
     $ sudo su
-    $ mkdir -p /etc/docker/certs.d/docker-registry2.hackweek.aws.zalando
-    $ curl https://static.zalando.de/ca/zalando-service.ca > /etc/docker/certs.d/docker-registry2.hackweek.aws.zalando/ca.crt
+    $ mkdir -p /etc/docker/certs.d/docker-registry.zalando
+    $ curl https://static.zalando.de/ca/zalando-service.ca > /etc/docker/certs.d/docker-registry.zalando/ca.crt
 
 Remember to perform this step after every restart of boot2docker.
+
+# Login to Docker Registry
+
+    $ curl -ujloeffler https://docker-registry.zalando/v1/auth > ~/.dockercfg
 
 # Build the project
 
     $ mvn clean package
-    $ docker build -t docker-registry2.hackweek.aws.zalando/aws-utilization-monitor:1.0 .
+    $ docker build -t docker-registry.zalando/aws-utilization-monitor:1.0 .
     
 # Check that our Docker image works
 
-    $ docker run -p 8080:8080 -it docker-registry2.hackweek.aws.zalando/aws-utilization-monitor:1.0
+    $ docker run -p 8080:8080 -it docker-registry.zalando/aws-utilization-monitor:1.0
 
 Visit [http://localhost:8080/](http://localhost:8080/)! Stop your server with **Ctrl+C**.
 
 # Deploy it in the cloud!
 
-    $ docker push docker-registry2.hackweek.aws.zalando/aws-utilization-monitor:1.0
+    $ docker push docker-registry.zalando/aws-utilization-monitor:1.0
 
 If you did not set up AWS Minion before, go and visit "How to use the AWS Minion tool":
 [https://techwiki.zalando.net/display/ZHW/AWS](https://techwiki.zalando.net/display/ZHW/AWS)
@@ -65,7 +69,7 @@ step):
 
 Add our Docker image as a new version to our application:
 
-    $ minion version create aws-utilization-monitor 1.0 docker-registry2.hackweek.aws.zalando/aws-utilization-monitor:1.0
+    $ minion version create aws-utilization-monitor 1.0 docker-registry.zalando/aws-utilization-monitor:1.0
 
 This step might take a long(tm) time (minutes). Afterwards you will be able to directly go to your deployed version:
 [https://aws-utilization-monitor-1.0.hackweek.aws.zalando/](https://aws-utilization-monitor-1.0.hackweek.aws.zalando/)
