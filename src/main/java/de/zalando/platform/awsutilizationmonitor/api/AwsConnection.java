@@ -10,6 +10,7 @@ import org.joda.time.DateTime;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
 
 import com.amazonaws.AmazonClientException;
 import com.amazonaws.AmazonServiceException;
@@ -65,8 +66,6 @@ import com.amazonaws.services.sns.model.PlatformApplication;
 import com.amazonaws.services.sns.model.Subscription;
 import com.amazonaws.services.sqs.AmazonSQSClient;
 
-import de.zalando.platform.awsutilizationmonitor.config.Config;
-
 /**
  * @author jloeffler
  *
@@ -101,10 +100,8 @@ import de.zalando.platform.awsutilizationmonitor.config.Config;
  *         keep the credentials file in your source directory.
  *
  */
+@Service
 public final class AwsConnection {
-	// set caching time to 1 hour - afterwards the aws api will be called again
-	// to collect resource usage
-	private final static int CACHE_DURATION = 60 * 60 * 1000;
 
 	private static AwsConnection instance = null;
 
@@ -122,8 +119,6 @@ public final class AwsConnection {
 		synchronized (lockObject) {
 			if (instance == null) {
 				instance = new AwsConnection();
-				Config c = new Config();
-				instance.cacheDuration = c.getCacheDuration();
 			}
 		}
 
@@ -736,8 +731,8 @@ public final class AwsConnection {
 		}
 	}
 
-	@Value("${connection.cache.duration}")
-	private int cacheDuration = CACHE_DURATION;
+	@Value("${connection.cache.duration:3600000}")
+	private int cacheDuration;
 
 	private AwsStats stats = null;
 
