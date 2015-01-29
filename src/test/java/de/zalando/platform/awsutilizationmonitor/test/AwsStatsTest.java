@@ -1,5 +1,5 @@
 /**
- * 
+ *
  */
 package de.zalando.platform.awsutilizationmonitor.test;
 
@@ -21,66 +21,66 @@ import de.zalando.platform.awsutilizationmonitor.api.AwsStats;
 public class AwsStatsTest {
 
 	private static AwsResource defaultResource = new AwsResource("Testname", "Testowner", AwsResourceType.Redshift, Regions.EU_WEST_1);
-	
+
 	@Test
-	public void testClearData() {		
+	public void testClearData() {
 		AwsStats stats = new AwsStats();
-		
+
 		stats.generateSampleData(15);
 		stats.clear();
-		
-		assertTrue(stats.getAllResources().length == 0);
+
+		assertTrue(stats.getItemCount() == 0);
 	}
 
 	@Test
-	public void testGenerateSampleData() {		
+	public void testGenerateSampleData() {
 		AwsStats stats = new AwsStats();
-		
+
 		stats.generateSampleData(15);
-		
-		assertTrue(stats.getAllResources().length >= 15);
+
+		assertTrue(stats.getItemCount() >= 15);
 	}
 
 	@Test
-	public void testGetOwners() {		
+	public void testGetOwners() {
 		AwsResource res = defaultResource;
-		AwsStats stats = new AwsStats();		
+		AwsStats stats = new AwsStats();
 		stats.add(res);
-		
+
 		assertTrue(stats.getOwners().length == 1);
 		assertTrue(stats.getOwners()[0] == res.getOwner());
 	}
 
 	@Test
-	public void testGetRegions() {		
+	public void testGetRegions() {
 		AwsResource res = defaultResource;
-		AwsStats stats = new AwsStats();		
+		AwsStats stats = new AwsStats();
 		stats.add(res);
-		
+
 		assertTrue(stats.getRegions().length == 1);
 		assertTrue(stats.getRegions()[0] == res.getRegion());
 	}
 
 	@Test
-	public void testGetResourceTypes() {		
+	public void testGetResourceTypes() {
 		AwsResource res = defaultResource;
-		AwsStats stats = new AwsStats();		
+		AwsStats stats = new AwsStats();
 		stats.add(res);
-		
+
 		assertTrue(stats.getUsedResourceTypes().length == 1);
 		assertTrue(stats.getUsedResourceTypes()[0] == res.getResourceType());
 	}
 
 	@Test
-	public void testInsertData() {		
+	public void testInsertData() {
 		AwsResource res = defaultResource;
-		AwsStats stats = new AwsStats();		
+		AwsStats stats = new AwsStats();
 		stats.add(res);
-		
-		assertTrue(stats.getAllResources().length == 1);
-		
+
+		assertTrue(stats.getItemCount() == 1);
+
 		AwsResource res2 = stats.getAllResources()[0];
-		
+
 		assertSame(res, res2);
 	}
 
@@ -97,17 +97,17 @@ public class AwsStatsTest {
 		assertTrue(AwsResource.RemoveVersionNumber("123myApp").equals("123myApp"));
 		assertTrue(AwsResource.RemoveVersionNumber("123-myApp-2").equals("123-myApp"));
 	}
-	
+
 	@Test
-	public void testSearch() {		
+	public void testSearch() {
 		AwsStats stats = new AwsStats();
-		
+
 		stats.generateSampleData(100);
-		
-		assertTrue(stats.getAllResources().length > 10);
+
+		assertTrue(stats.getItemCount() > 10);
 		assertTrue(stats.searchResources("FeedTheWorld").length > 0);
 		assertTrue(stats.searchResources("Mickey Mouse").length > 0);
 		assertTrue(stats.searchResources("bucket_").length > 0);
-		assertTrue(stats.searchResources(AwsResourceType.ElasticTranscoder.toString()).length > 0);		
+		assertTrue(stats.searchResources(AwsResourceType.ElasticTranscoder.toString()).length > 0);
 	}
 }

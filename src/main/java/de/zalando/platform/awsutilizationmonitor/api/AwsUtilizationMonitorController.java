@@ -6,6 +6,7 @@ import java.net.URLEncoder;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseBody;
@@ -17,12 +18,18 @@ import com.amazonaws.regions.Regions;
 final class AwsUtilizationMonitorController {
 	public static final Logger LOG = LoggerFactory.getLogger(AwsUtilizationMonitorController.class);
 
+	private AwsStatsCollector collector;
+
+	@Autowired
+	public AwsUtilizationMonitorController(AwsStatsCollector collector) {
+		this.collector = collector;
+	}
+
 	@RequestMapping("/apps/")
 	@ResponseBody
 	String[] apps() {
-		LOG.info("called /apps");
+		LOG.info("called /apps/");
 
-		AwsStatsCollector collector = new AwsStatsCollector();
 		return collector.getStats().getApps();
 	}
 
@@ -37,7 +44,6 @@ final class AwsUtilizationMonitorController {
 
 		LOG.info("called /apps/" + appName);
 
-		AwsStatsCollector collector = new AwsStatsCollector();
 		AwsResource[] res = collector.getStats().getAppInstances(appName);
 
 		if ((res == null) || (res.length == 0)) {
@@ -50,9 +56,8 @@ final class AwsUtilizationMonitorController {
 	@RequestMapping("/clear/")
 	@ResponseBody
 	String clear() {
-		LOG.info("called /clear");
+		LOG.info("called /clear/");
 
-		AwsStatsCollector collector = new AwsStatsCollector();
 		collector.clearCache();
 
 		return "Cache empty";
@@ -80,7 +85,7 @@ final class AwsUtilizationMonitorController {
 				+ "<li><a href=/owners/>/owners/</a> List owners</li>"
 				+ "<li><a href=/owners/Jan%20Löffler/>/owners/{owner_name}/</a> Show resources used by owner with name \"Jan Löffler\"</li>"
 				+ "<li><a href=/regions/>/regions/</a> List regions</li>"
-				+ "<li><a href=/regions/eu-west-1/>/regions/{region_name}/</a> Show resources used by region with name \"eu-west-1\"</li>"
+				+ "<li><a href=/regions/EU-WEST-1/>/regions/{region_name}/</a> Show resources used by region with name \"EU-WEST-1\"</li>"
 				+ "<li><a href=/search/banana/>/search/{search_pattern}/</a> Show app with name \"banana\"</li>"
 				+ "<li><a href=/values/Team/Platform/>/values/{key_name}/{value_pattern}/</a> Show resources that contain a value with the key \"Team\" and the pattern \"Platform\"</li>"
 				+ "<li><a href=/statistics/>/statistics/</a> Show statistics about resource usage</li>"
@@ -94,10 +99,7 @@ final class AwsUtilizationMonitorController {
 	String[] keys() {
 		LOG.info("called /keys/");
 
-		AwsStatsCollector collector = new AwsStatsCollector();
-		String[] results = collector.getStats().getKeys();
-
-		return results;
+		return collector.getStats().getKeys();
 	}
 
 	@RequestMapping("/keys/{keyName}")
@@ -105,7 +107,6 @@ final class AwsUtilizationMonitorController {
 	Object[] keys(@PathVariable String keyName) {
 		LOG.info("called /keys/" + keyName);
 
-		AwsStatsCollector collector = new AwsStatsCollector();
 		collector.getStats().getValues(keyName);
 		Object[] results = collector.getStats().getValues(keyName);
 
@@ -119,9 +120,8 @@ final class AwsUtilizationMonitorController {
 	@RequestMapping("/owners/")
 	@ResponseBody
 	String[] owners() {
-		LOG.info("called /owners");
+		LOG.info("called /owners/");
 
-		AwsStatsCollector collector = new AwsStatsCollector();
 		return collector.getStats().getOwners();
 	}
 
@@ -136,7 +136,6 @@ final class AwsUtilizationMonitorController {
 
 		LOG.info("called /owners/" + ownerName);
 
-		AwsStatsCollector collector = new AwsStatsCollector();
 		AwsResource[] results = collector.getStats().getResourcesByOwner(ownerName);
 
 		if ((results == null) || (results.length == 0)) {
@@ -149,9 +148,8 @@ final class AwsUtilizationMonitorController {
 	@RequestMapping("/regions/")
 	@ResponseBody
 	Regions[] regions() {
-		LOG.info("called /regions");
+		LOG.info("called /regions/");
 
-		AwsStatsCollector collector = new AwsStatsCollector();
 		return collector.getStats().getRegions();
 	}
 
@@ -160,7 +158,6 @@ final class AwsUtilizationMonitorController {
 	AwsResource[] regions(@PathVariable String region) {
 		LOG.info("called /regions/" + region);
 
-		AwsStatsCollector collector = new AwsStatsCollector();
 		AwsResource[] results = collector.getStats().getResourcesByRegion(Regions.valueOf(region));
 
 		if ((results == null) || (results.length == 0)) {
@@ -173,9 +170,8 @@ final class AwsUtilizationMonitorController {
 	@RequestMapping("/resources/")
 	@ResponseBody
 	AwsStats resources() {
-		LOG.info("called /resources");
+		LOG.info("called /resources/");
 
-		AwsStatsCollector collector = new AwsStatsCollector();
 		return collector.getStats();
 	}
 
@@ -184,7 +180,6 @@ final class AwsUtilizationMonitorController {
 	AwsResource resources(@PathVariable String resourceName) {
 		LOG.info("called /resources/" + resourceName);
 
-		AwsStatsCollector collector = new AwsStatsCollector();
 		AwsResource res = collector.getStats().getResource(resourceName);
 
 		if (res == null) {
@@ -205,7 +200,6 @@ final class AwsUtilizationMonitorController {
 
 		LOG.info("called /search/" + searchPattern);
 
-		AwsStatsCollector collector = new AwsStatsCollector();
 		AwsResource[] results = collector.getStats().searchResources(searchPattern);
 
 		if ((results == null) || (results.length == 0)) {
@@ -220,7 +214,6 @@ final class AwsUtilizationMonitorController {
 	String statistics() {
 		LOG.info("called /statistics");
 
-		AwsStatsCollector collector = new AwsStatsCollector();
 		AwsStats stats = collector.getStats();
 		StringBuilder s = new StringBuilder();
 
@@ -304,20 +297,16 @@ final class AwsUtilizationMonitorController {
 	@RequestMapping("/summary/")
 	@ResponseBody
 	AwsStatsSummary summary() {
-		LOG.info("called /summary");
+		LOG.info("called /summary/");
 
-		AwsStatsCollector collector = new AwsStatsCollector();
-		AwsStats stats = collector.getStats();
-
-		return stats.getSummary();
+		return collector.getStats().getSummary();
 	}
 
 	@RequestMapping("/test/")
 	@ResponseBody
 	AwsStats test() {
-		LOG.info("called /test");
+		LOG.info("called /test/");
 
-		AwsStatsCollector collector = new AwsStatsCollector();
 		collector.generateSampleData(30);
 
 		return collector.getStats();
@@ -328,7 +317,6 @@ final class AwsUtilizationMonitorController {
 	AwsStats test(@PathVariable int maxItems) {
 		LOG.info("called /test/" + maxItems);
 
-		AwsStatsCollector collector = new AwsStatsCollector();
 		collector.generateSampleData(maxItems);
 
 		return collector.getStats();
@@ -337,9 +325,8 @@ final class AwsUtilizationMonitorController {
 	@RequestMapping("/types/")
 	@ResponseBody
 	AwsResourceType[] types() {
-		LOG.info("called /types");
+		LOG.info("called /types/");
 
-		AwsStatsCollector collector = new AwsStatsCollector();
 		return collector.getStats().getUsedResourceTypes();
 	}
 
@@ -348,7 +335,6 @@ final class AwsUtilizationMonitorController {
 	AwsResource[] types(@PathVariable String resourceType) {
 		LOG.info("called /types/" + resourceType);
 
-		AwsStatsCollector collector = new AwsStatsCollector();
 		AwsResource[] results = collector.getStats().getResources(AwsResourceType.valueOf(resourceType));
 
 		if ((results == null) || (results.length == 0)) {
@@ -369,7 +355,6 @@ final class AwsUtilizationMonitorController {
 
 		LOG.info("called /values/" + key + "/" + value);
 
-		AwsStatsCollector collector = new AwsStatsCollector();
 		AwsResource[] results = collector.getStats().searchResources(key, value);
 
 		if ((results == null) || (results.length == 0)) {

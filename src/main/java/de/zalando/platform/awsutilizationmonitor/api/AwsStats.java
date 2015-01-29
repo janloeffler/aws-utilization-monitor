@@ -143,6 +143,18 @@ public class AwsStats {
 	}
 
 	/**
+	 * @return amount of resource items.
+	 */
+	public int getItemCount() {
+		int i = 0;
+		for (ArrayList<AwsResource> list : this.resources.values()) {
+			i += list.size();
+		}
+
+		return i;
+	}
+
+	/**
 	 * Returns all keys sorted alphabetically.
 	 *
 	 * @return sorted list of all keys.
@@ -300,7 +312,7 @@ public class AwsStats {
 	public AwsStatsSummary getSummary() {
 		AwsStatsSummary summary = new AwsStatsSummary();
 
-		summary.setResources(getAllResources().length);
+		summary.setResources(getItemCount());
 		summary.setOwners(getOwners().length);
 		summary.setRegions(getRegions().length);
 		summary.setResourceTypes(getUsedResourceTypes().length);

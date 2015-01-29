@@ -9,10 +9,7 @@ import org.springframework.context.annotation.Configuration;
 @EnableAutoConfiguration
 @ComponentScan
 public class Main {
-    public static void main(String[] args) throws Exception {
-        new SpringApplicationBuilder()
-                .showBanner(false)
-                .sources(Main.class)
-                .run(args);
-    }
+	public static void main(String[] args) throws Exception {
+		new SpringApplicationBuilder().showBanner(false).sources(Main.class).run(args);
+	}
 }
