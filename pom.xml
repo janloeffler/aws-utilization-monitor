@@ -10,7 +10,7 @@
 
     <groupId>de.zalando.platform</groupId>
     <artifactId>aws-utilization-monitor</artifactId>
-    <version>1.0-SNAPSHOT</version>
+    <version>1.1-SNAPSHOT</version>
 	<name>AWS Utilization Monitor</name>
 	<description>The AWS Utilization Monitor is a RESTful service that scans AWS accounts for all used resources and generates a statistic for it. To get stats about several accounts you either change the AWS credentials file or deploy this service to each AWS account you want to monitor and collect data via its RESTful API.</description>
 	<organization>

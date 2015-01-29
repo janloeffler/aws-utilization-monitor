@@ -5,4 +5,4 @@ stateful: false
 exposed_ports: [8080]
 exposed_protocol: http
 instance_type: t2.micro
-health_check_http_path: /health
+health_check_http_path: /health/

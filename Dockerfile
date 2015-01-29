@@ -1,4 +1,4 @@
-FROM zalando/openjdk:8u40-b09-1
+FROM docker-registry.zalando/tsarnowski/zalando-java:8u31-1
 
 MAINTAINER Jan Löffler <jan.loeffler@zalando.de>
 
