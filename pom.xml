@@ -19,6 +19,10 @@
 	
 	<properties>
 		<jdk.version>1.8</jdk.version>
+		<maven.javadoc.version>2.10.1</maven.javadoc.version>
+		<coveralls.version>3.0.1</coveralls.version>
+		<cobertura.version>2.6</cobertura.version>
+		<checkstyle.version>2.13</checkstyle.version>
 	</properties>
 	
 	<licenses>
@@ -89,6 +93,38 @@
 				</configuration>
 			</plugin>
 
+			<plugin>
+				<groupId>org.jacoco</groupId>
+				<artifactId>jacoco-maven-plugin</artifactId>
+				<version>0.7.2.201409121644</version>
+				<executions>
+					<execution>
+						<id>prepare-agent</id>
+						<goals>
+							<goal>prepare-agent</goal>
+						</goals>
+					</execution>
+				</executions>
+			</plugin>
+			
+			<plugin>
+				<groupId>org.eluder.coveralls</groupId>
+				<artifactId>coveralls-maven-plugin</artifactId>
+				<version>${coveralls.version}</version>
+				<configuration>
+					<repoToken>xwfbBVlfmu2ufAadFXHcegkSpmH2C82Y0</repoToken>
+				</configuration>				
+			</plugin>
+			
+	        <plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-javadoc-plugin</artifactId>
+ 				<version>${maven.javadoc.version}</version>
+				<configuration>
+					<sourcepath>${project.basedir}/src/main/java</sourcepath>
+				</configuration>
+			</plugin>
+
     		<plugin>
       			<groupId>com.spotify</groupId>
       			<artifactId>docker-maven-plugin</artifactId>
@@ -113,4 +149,22 @@
             </plugin>
         </plugins>
     </build>
+    
+	<reporting>
+		<plugins>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-checkstyle-plugin</artifactId>
+				<version>${checkstyle.version}</version>
+				<reportSets>
+					<reportSet>
+						<reports>
+							<report>checkstyle</report>
+						</reports>
+					</reportSet>
+				</reportSets>
+			</plugin>
+		</plugins>
+	</reporting>    
+    
 </project>
