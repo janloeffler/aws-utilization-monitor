@@ -1,4 +1,5 @@
 [![Build Status](https://travis-ci.org/zalando/aws-utilization-monitor.svg?branch=master)](https://travis-ci.org/zalando/aws-utilization-monitor)
+[![Coverage Status](https://coveralls.io/repos/zalando/aws-utilization-monitor/badge.svg?branch=master)](https://coveralls.io/r/zalando/aws-utilization-monitor?branch=master)
 
 # AWS Utilization Monitor build & deploy guidelines
 

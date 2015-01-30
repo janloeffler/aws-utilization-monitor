@@ -72,6 +72,38 @@ public class AwsStatsTest {
 	}
 
 	@Test
+	public void testGetSummary() {
+		AwsStats stats = new AwsStats();
+
+		assertTrue(stats.getItemCount() == stats.getSummary().getResources());
+		assertTrue(stats.getSummary().getApps() == 0);
+		assertTrue(stats.getSummary().getResources() == 0);
+
+		stats.generateSampleData(100);
+
+		assertTrue(stats.getItemCount() == stats.getSummary().getResources());
+		assertTrue(stats.getSummary().getApps() > 0);
+		assertTrue(stats.getSummary().getResources() > 10);
+	}
+
+	@Test
+	public void testGetTeams() {
+		AwsStats stats = new AwsStats();
+
+		int items = 20;
+		for (int i = 0; i < items; i++) {
+			AwsResource res = new AwsResource("res_" + i, "owner_" + i, AwsResourceType.EC2, Regions.EU_WEST_1);
+			res.addInfo("Team", "team_" + i);
+			stats.add(res);
+		}
+
+		assertTrue(stats.getItemCount() == items);
+		assertTrue(stats.getTeams().length == items);
+		assertTrue(stats.getValues("Team").length == items);
+		assertTrue(stats.searchResources("team_1").length > 0);
+	}
+
+	@Test
 	public void testInsertData() {
 		AwsResource res = defaultResource;
 		AwsStats stats = new AwsStats();
