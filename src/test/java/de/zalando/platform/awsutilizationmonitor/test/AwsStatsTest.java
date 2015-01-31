@@ -20,12 +20,11 @@ import de.zalando.platform.awsutilizationmonitor.api.AwsStats;
  */
 public class AwsStatsTest {
 
-	private static AwsResource defaultResource = new AwsResource("Testname", "Testowner", AwsResourceType.Redshift, Regions.EU_WEST_1);
+	private static AwsResource defaultResource = new AwsResource("Testname", "Testowner", AwsResourceType.EC2, Regions.EU_WEST_1);
 
 	@Test
 	public void testClearData() {
 		AwsStats stats = new AwsStats();
-
 		stats.generateSampleData(15);
 		stats.clear();
 
@@ -35,16 +34,34 @@ public class AwsStatsTest {
 	@Test
 	public void testGenerateSampleData() {
 		AwsStats stats = new AwsStats();
-
 		stats.generateSampleData(15);
 
 		assertTrue(stats.getItemCount() >= 15);
 	}
 
 	@Test
-	public void testGetOwners() {
-		AwsResource res = defaultResource;
+	public void testGetAppInstances() {
 		AwsStats stats = new AwsStats();
+
+		int max = 5;
+		String appName = "my-app";
+
+		for (int i = 0; i < max; i++) {
+			AwsResource res = (AwsResource) defaultResource.clone();
+			res.setName(appName + "-1." + i);
+			stats.add(res);
+		}
+
+		assertTrue(stats.getItemCount() == max);
+		assertTrue(stats.getApps().length == 1);
+		assertTrue(stats.getApps()[0].equalsIgnoreCase(appName));
+		assertTrue(stats.getAppInstances(appName).length == max);
+	}
+
+	@Test
+	public void testGetOwners() {
+		AwsStats stats = new AwsStats();
+		AwsResource res = defaultResource;
 		stats.add(res);
 
 		assertTrue(stats.getOwners().length == 1);
@@ -53,8 +70,8 @@ public class AwsStatsTest {
 
 	@Test
 	public void testGetRegions() {
-		AwsResource res = defaultResource;
 		AwsStats stats = new AwsStats();
+		AwsResource res = defaultResource;
 		stats.add(res);
 
 		assertTrue(stats.getRegions().length == 1);
@@ -62,9 +79,30 @@ public class AwsStatsTest {
 	}
 
 	@Test
-	public void testGetResourceTypes() {
-		AwsResource res = defaultResource;
+	public void testGetResource() {
 		AwsStats stats = new AwsStats();
+
+		int max = 5;
+		String appName = "my-app";
+
+		for (int i = 0; i < max; i++) {
+			AwsResource res = (AwsResource) defaultResource.clone();
+			res.setName(appName + "-1." + i);
+			stats.add(res);
+		}
+
+		assertTrue(stats.getItemCount() == max);
+
+		for (int i = 0; i < max; i++) {
+			assertTrue(stats.getResource(appName + "-1." + i) != null);
+			assertTrue(stats.getResource(appName + "-1." + i).getName().equalsIgnoreCase(appName + "-1." + i));
+		}
+	}
+
+	@Test
+	public void testGetResourceTypes() {
+		AwsStats stats = new AwsStats();
+		AwsResource res = defaultResource;
 		stats.add(res);
 
 		assertTrue(stats.getUsedResourceTypes().length == 1);
@@ -81,9 +119,14 @@ public class AwsStatsTest {
 
 		stats.generateSampleData(100);
 
-		assertTrue(stats.getItemCount() == stats.getSummary().getResources());
 		assertTrue(stats.getSummary().getApps() > 0);
 		assertTrue(stats.getSummary().getResources() > 10);
+		assertTrue(stats.getApps().length == stats.getSummary().getApps());
+		assertTrue(stats.getOwners().length == stats.getSummary().getOwners());
+		assertTrue(stats.getRegions().length == stats.getSummary().getRegions());
+		assertTrue(stats.getItemCount() == stats.getSummary().getResources());
+		assertTrue(stats.getUsedResourceTypes().length == stats.getSummary().getResourceTypes());
+		assertTrue(stats.getTeams().length == stats.getSummary().getTeams());
 	}
 
 	@Test
@@ -105,9 +148,10 @@ public class AwsStatsTest {
 
 	@Test
 	public void testInsertData() {
-		AwsResource res = defaultResource;
 		AwsStats stats = new AwsStats();
+		AwsResource res = defaultResource;
 		stats.add(res);
+		stats.add(null);
 
 		assertTrue(stats.getItemCount() == 1);
 
