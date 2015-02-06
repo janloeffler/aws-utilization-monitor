@@ -23,6 +23,7 @@
 		<coveralls.version>3.0.1</coveralls.version>
 		<cobertura.version>2.6</cobertura.version>
 		<checkstyle.version>2.13</checkstyle.version>
+		<spotify.docker.version>0.1.1</spotify.docker.version>
 	</properties>
 	
 	<licenses>
@@ -127,7 +128,7 @@
     		<plugin>
       			<groupId>com.spotify</groupId>
       			<artifactId>docker-maven-plugin</artifactId>
-      			<version>VERSION GOES HERE</version>
+      			<version>${spotify.docker.version}</version>
       			<configuration>
         			<imageName>aws-utilization-monitor</imageName>
         			<dockerDirectory></dockerDirectory>
