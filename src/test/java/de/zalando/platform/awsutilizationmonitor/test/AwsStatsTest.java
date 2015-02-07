@@ -20,7 +20,7 @@ import de.zalando.platform.awsutilizationmonitor.api.AwsStats;
  */
 public class AwsStatsTest {
 
-	private static AwsResource defaultResource = new AwsResource("Testname", "Testowner", AwsResourceType.EC2, Regions.EU_WEST_1);
+	private static AwsResource defaultResource = new AwsResource("Testname", "TestAccountId", AwsResourceType.EC2, Regions.EU_WEST_1);
 
 	@Test
 	public void testClearData() {
@@ -40,6 +40,16 @@ public class AwsStatsTest {
 	}
 
 	@Test
+	public void testGetAccounts() {
+		AwsStats stats = new AwsStats();
+		AwsResource res = defaultResource;
+		stats.add(res);
+
+		assertTrue(stats.getAccounts().length == 1);
+		assertTrue(stats.getAccounts()[0] == res.getAccountId());
+	}
+
+	@Test
 	public void testGetAppInstances() {
 		AwsStats stats = new AwsStats();
 
@@ -56,16 +66,6 @@ public class AwsStatsTest {
 		assertTrue(stats.getApps().length == 1);
 		assertTrue(stats.getApps()[0].equalsIgnoreCase(appName));
 		assertTrue(stats.getAppInstances(appName).length == max);
-	}
-
-	@Test
-	public void testGetOwners() {
-		AwsStats stats = new AwsStats();
-		AwsResource res = defaultResource;
-		stats.add(res);
-
-		assertTrue(stats.getOwners().length == 1);
-		assertTrue(stats.getOwners()[0] == res.getOwner());
 	}
 
 	@Test
@@ -122,7 +122,7 @@ public class AwsStatsTest {
 		assertTrue(stats.getSummary().getApps() > 0);
 		assertTrue(stats.getSummary().getResources() > 10);
 		assertTrue(stats.getApps().length == stats.getSummary().getApps());
-		assertTrue(stats.getOwners().length == stats.getSummary().getOwners());
+		assertTrue(stats.getAccounts().length == stats.getSummary().getAccounts());
 		assertTrue(stats.getRegions().length == stats.getSummary().getRegions());
 		assertTrue(stats.getItemCount() == stats.getSummary().getResources());
 		assertTrue(stats.getUsedResourceTypes().length == stats.getSummary().getResourceTypes());
@@ -135,7 +135,7 @@ public class AwsStatsTest {
 
 		int items = 20;
 		for (int i = 0; i < items; i++) {
-			AwsResource res = new AwsResource("res_" + i, "owner_" + i, AwsResourceType.EC2, Regions.EU_WEST_1);
+			AwsResource res = new AwsResource("res_" + i, "account_" + i, AwsResourceType.EC2, Regions.EU_WEST_1);
 			res.addInfo("Team", "team_" + i);
 			stats.add(res);
 		}
@@ -155,7 +155,7 @@ public class AwsStatsTest {
 
 		assertTrue(stats.getItemCount() == 1);
 
-		AwsResource res2 = stats.getAllResources()[0];
+		AwsResource res2 = stats.getResources()[0];
 
 		assertSame(res, res2);
 	}

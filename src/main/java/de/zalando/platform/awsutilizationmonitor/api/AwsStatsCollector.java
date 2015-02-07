@@ -4,6 +4,7 @@
 package de.zalando.platform.awsutilizationmonitor.api;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 import org.joda.time.DateTime;
@@ -19,6 +20,10 @@ import com.amazonaws.auth.AWSCredentials;
 import com.amazonaws.auth.profile.ProfileCredentialsProvider;
 import com.amazonaws.regions.Region;
 import com.amazonaws.regions.Regions;
+import com.amazonaws.services.cloudsearchv2.AmazonCloudSearchClient;
+import com.amazonaws.services.cloudsearchv2.model.DomainStatus;
+import com.amazonaws.services.cloudwatch.AmazonCloudWatchClient;
+import com.amazonaws.services.cloudwatch.model.Metric;
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDB;
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClient;
 import com.amazonaws.services.ec2.AmazonEC2;
@@ -41,6 +46,7 @@ import com.amazonaws.services.glacier.AmazonGlacier;
 import com.amazonaws.services.glacier.AmazonGlacierClient;
 import com.amazonaws.services.glacier.model.DescribeVaultOutput;
 import com.amazonaws.services.glacier.model.ListVaultsRequest;
+import com.amazonaws.services.identitymanagement.AmazonIdentityManagementClient;
 import com.amazonaws.services.kinesis.AmazonKinesis;
 import com.amazonaws.services.kinesis.AmazonKinesisClient;
 import com.amazonaws.services.rds.AmazonRDS;
@@ -108,6 +114,95 @@ public final class AwsStatsCollector {
 	public static final Logger LOG = LoggerFactory.getLogger(AwsStatsCollector.class);
 
 	/**
+	 * Collect data for CloudFront.
+	 *
+	 * @param stats
+	 *            current statistics object.
+	 * @param credentials
+	 *            currently used credentials object.
+	 */
+	public static void scanCloudFront(AwsStats stats, AWSCredentials credentials, String accountId, Regions region) {
+		LOG.debug("Scan for CloudFront in region " + region.getName());
+
+		try {
+			/*
+			 * AmazonCloudFrontClient cf = new
+			 * AmazonCloudFrontClient(credentials);
+			 * cf.setRegion(Region.getRegion(region));
+			 */
+		} catch (AmazonServiceException ase) {
+			LOG.error("Exception of CloudFront: " + ase.getMessage());
+		} catch (Exception ex) {
+			LOG.error("Exception of CloudFront: " + ex.getMessage());
+		}
+	}
+
+	/**
+	 * Collect data for CloudSearch.
+	 *
+	 * @param stats
+	 *            current statistics object.
+	 * @param credentials
+	 *            currently used credentials object.
+	 */
+	public static void scanCloudSearch(AwsStats stats, AWSCredentials credentials, String accountId, Regions region) {
+		LOG.debug("Scan for CloudSearch in region " + region.getName());
+
+		try {
+			AmazonCloudSearchClient cs = new AmazonCloudSearchClient(credentials);
+			cs.setRegion(Region.getRegion(region));
+
+			int totalDomains = 0;
+			for (DomainStatus ds : cs.describeDomains().getDomainStatusList()) {
+				AwsResource res = new AwsResource(ds.getDomainName(), accountId, AwsResourceType.CloudSearch, region);
+				res.addInfo("Endpoint", ds.getSearchService().getEndpoint());
+				res.addInfo("SearchInstanceType", ds.getSearchInstanceType());
+				res.addInfo("SearchInstanceCount", ds.getSearchInstanceCount());
+				res.addInfo("ARN", ds.getARN());
+				stats.add(res);
+				totalDomains++;
+			}
+
+			LOG.info(totalDomains + " CloudSearch domains in region " + region.getName());
+		} catch (AmazonServiceException ase) {
+			LOG.error("Exception of CloudSearch: " + ase.getMessage());
+		} catch (Exception ex) {
+			LOG.error("Exception of CloudSearch: " + ex.getMessage());
+		}
+	}
+
+	/**
+	 * Collect data for CloudWatch.
+	 *
+	 * @param stats
+	 *            current statistics object.
+	 * @param credentials
+	 *            currently used credentials object.
+	 */
+	public static void scanCloudWatch(AwsStats stats, AWSCredentials credentials, String accountId, Regions region) {
+		LOG.debug("Scan for CloudWatch in region " + region.getName());
+
+		try {
+			AmazonCloudWatchClient cw = new AmazonCloudWatchClient(credentials);
+			cw.setRegion(Region.getRegion(region));
+
+			int totalMetrics = 0;
+
+			for (Metric m : cw.listMetrics().getMetrics()) {
+				AwsResource res = new AwsResource(m.getMetricName(), accountId, AwsResourceType.CloudWatch, region);
+				stats.add(res);
+				totalMetrics++;
+			}
+
+			LOG.info(totalMetrics + " CloudWatch metrics in region " + region.getName());
+		} catch (AmazonServiceException ase) {
+			LOG.error("Exception of CloudWatch: " + ase.getMessage());
+		} catch (Exception ex) {
+			LOG.error("Exception of CloudWatch: " + ex.getMessage());
+		}
+	}
+
+	/**
 	 * Collect data for DynamoDB.
 	 *
 	 * @param stats
@@ -115,7 +210,7 @@ public final class AwsStatsCollector {
 	 * @param credentials
 	 *            currently used credentials object.
 	 */
-	public static void scanDynamoDB(AwsStats stats, AWSCredentials credentials, Regions region) {
+	public static void scanDynamoDB(AwsStats stats, AWSCredentials credentials, String accountId, Regions region) {
 		LOG.debug("Scan for DynamoDB in region " + region.getName());
 
 		/*
@@ -129,7 +224,7 @@ public final class AwsStatsCollector {
 
 			int totalItems = list.size();
 			for (String tableName : list) {
-				AwsResource res = new AwsResource(tableName, "", AwsResourceType.DynamoDB, region);
+				AwsResource res = new AwsResource(tableName, accountId, AwsResourceType.DynamoDB, region);
 				stats.add(res);
 			}
 
@@ -147,7 +242,7 @@ public final class AwsStatsCollector {
 	 * @param credentials
 	 *            currently used credentials object.
 	 */
-	public static void scanEC2(AwsStats stats, AWSCredentials credentials, Regions region) {
+	public static void scanEC2(AwsStats stats, AWSCredentials credentials, String accountId, Regions region) {
 		LOG.debug("Scan for EC2 in region " + region.getName());
 
 		try {
@@ -183,7 +278,8 @@ public final class AwsStatsCollector {
 				int instancesAdded = 0;
 				try {
 					for (Instance instance : reservation.getInstances()) {
-						AwsResource res = new AwsResource(instance.getKeyName(), reservation.getOwnerId(), AwsResourceType.EC2, region);
+						AwsResource res = new AwsResource(instance.getKeyName(), accountId, AwsResourceType.EC2, region);
+						res.addInfo("OwnerId", reservation.getOwnerId());
 						res.addInfo("InstanceType", instance.getInstanceType());
 						res.addInfo("PrivateIpAddress", instance.getPrivateIpAddress());
 						res.addInfo("PrivateDnsName", instance.getPrivateDnsName());
@@ -212,7 +308,8 @@ public final class AwsStatsCollector {
 				}
 
 				if (instancesAdded == 0) {
-					AwsResource res = new AwsResource(reservation.getReservationId(), reservation.getOwnerId(), AwsResourceType.EC2, region);
+					AwsResource res = new AwsResource(reservation.getReservationId(), accountId, AwsResourceType.EC2, region);
+					res.addInfo("OwnerId", reservation.getOwnerId());
 					res.addInfo("info", "No instances of reservation found");
 					stats.add(res);
 					LOG.info("No instances of reservation found: " + res.getName());
@@ -237,7 +334,7 @@ public final class AwsStatsCollector {
 	 * @param credentials
 	 *            currently used credentials object.
 	 */
-	public static void scanElastiCache(AwsStats stats, AWSCredentials credentials, Regions region) {
+	public static void scanElastiCache(AwsStats stats, AWSCredentials credentials, String accountId, Regions region) {
 		if (region == Regions.EU_CENTRAL_1)
 			return;
 
@@ -254,7 +351,7 @@ public final class AwsStatsCollector {
 
 			int totalItems = list.size();
 			for (CacheCluster cluster : list) {
-				AwsResource res = new AwsResource(cluster.getCacheClusterId(), "", AwsResourceType.ElastiCache, region);
+				AwsResource res = new AwsResource(cluster.getCacheClusterId(), accountId, AwsResourceType.ElastiCache, region);
 				res.addInfo("Engine", cluster.getEngine());
 				res.addInfo("EngineVersion", cluster.getEngineVersion());
 				res.addInfo("NumCacheNodes", cluster.getNumCacheNodes());
@@ -275,7 +372,7 @@ public final class AwsStatsCollector {
 	 * @param credentials
 	 *            currently used credentials object.
 	 */
-	public static void scanElasticMapReduce(AwsStats stats, AWSCredentials credentials, Regions region) {
+	public static void scanElasticMapReduce(AwsStats stats, AWSCredentials credentials, String accountId, Regions region) {
 		LOG.debug("Scan for MapReduce in region " + region.getName());
 
 		try {
@@ -286,7 +383,7 @@ public final class AwsStatsCollector {
 
 			int totalItems = list.size();
 			for (ClusterSummary cs : list) {
-				stats.add(new AwsResource(cs.getName(), "", AwsResourceType.ElasticMapReduce, region));
+				stats.add(new AwsResource(cs.getName(), accountId, AwsResourceType.ElasticMapReduce, region));
 			}
 
 			LOG.info(totalItems + " ElasticMapReduce clusters in region " + region.getName());
@@ -303,7 +400,7 @@ public final class AwsStatsCollector {
 	 * @param credentials
 	 *            currently used credentials object.
 	 */
-	public static void scanElasticTranscoder(AwsStats stats, AWSCredentials credentials, Regions region) {
+	public static void scanElasticTranscoder(AwsStats stats, AWSCredentials credentials, String accountId, Regions region) {
 		if (region == Regions.EU_CENTRAL_1)
 			return;
 
@@ -317,7 +414,7 @@ public final class AwsStatsCollector {
 
 			int totalItems = list.size();
 			for (Pipeline pipeline : list) {
-				AwsResource res = new AwsResource(pipeline.getName(), "", AwsResourceType.ElasticTranscoder, region);
+				AwsResource res = new AwsResource(pipeline.getName(), accountId, AwsResourceType.ElasticTranscoder, region);
 				res.addInfo("Arn", pipeline.getArn());
 				stats.add(res);
 			}
@@ -336,7 +433,7 @@ public final class AwsStatsCollector {
 	 * @param credentials
 	 *            currently used credentials object.
 	 */
-	public static void scanGlacier(AwsStats stats, AWSCredentials credentials, Regions region) {
+	public static void scanGlacier(AwsStats stats, AWSCredentials credentials, String accountId, Regions region) {
 		LOG.debug("Scan for Glacier in region " + region.getName());
 
 		try {
@@ -347,7 +444,7 @@ public final class AwsStatsCollector {
 			ListVaultsRequest lvr = new ListVaultsRequest();
 			int totalItems = 0;
 			for (DescribeVaultOutput dvo : glacier.listVaults(lvr).getVaultList()) {
-				AwsResource res = new AwsResource(dvo.getVaultName(), "", AwsResourceType.Glacier, region);
+				AwsResource res = new AwsResource(dvo.getVaultName(), accountId, AwsResourceType.Glacier, region);
 				res.addInfo("NumberOfArchives", dvo.getNumberOfArchives());
 				res.addInfo("VaultARN", dvo.getVaultARN());
 				res.addInfo("SizeInBytes", dvo.getSizeInBytes());
@@ -369,7 +466,7 @@ public final class AwsStatsCollector {
 	 * @param credentials
 	 *            currently used credentials object.
 	 */
-	public static void scanKinesis(AwsStats stats, AWSCredentials credentials, Regions region) {
+	public static void scanKinesis(AwsStats stats, AWSCredentials credentials, String accountId, Regions region) {
 		LOG.debug("Scan for Kinesis in region " + region.getName());
 
 		try {
@@ -380,7 +477,7 @@ public final class AwsStatsCollector {
 
 			int totalItems = list.size();
 			for (String streamName : list) {
-				stats.add(new AwsResource(streamName, "", AwsResourceType.Kinesis, region));
+				stats.add(new AwsResource(streamName, accountId, AwsResourceType.Kinesis, region));
 			}
 
 			LOG.info(totalItems + " Kinesis streams in region " + region.getName());
@@ -397,7 +494,7 @@ public final class AwsStatsCollector {
 	 * @param credentials
 	 *            currently used credentials object.
 	 */
-	public static void scanRDS(AwsStats stats, AWSCredentials credentials, Regions region) {
+	public static void scanRDS(AwsStats stats, AWSCredentials credentials, String accountId, Regions region) {
 		LOG.debug("Scan for RDS in region " + region.getName());
 
 		try {
@@ -408,7 +505,7 @@ public final class AwsStatsCollector {
 
 			int totalItems = list.size();
 			for (DBInstance dbInstance : list) {
-				AwsResource res = new AwsResource(dbInstance.getDBName(), "", AwsResourceType.RDS, region);
+				AwsResource res = new AwsResource(dbInstance.getDBName(), accountId, AwsResourceType.RDS, region);
 				res.addInfo("DBInstanceIdentifier", dbInstance.getDBInstanceIdentifier());
 				stats.add(res);
 			}
@@ -427,7 +524,7 @@ public final class AwsStatsCollector {
 	 * @param credentials
 	 *            currently used credentials object.
 	 */
-	public static void scanRedshift(AwsStats stats, AWSCredentials credentials, Regions region) {
+	public static void scanRedshift(AwsStats stats, AWSCredentials credentials, String accountId, Regions region) {
 		LOG.debug("Scan for Redshift in region " + region.getName());
 
 		try {
@@ -438,7 +535,7 @@ public final class AwsStatsCollector {
 
 			int totalItems = list.size();
 			for (Cluster cluster : list) {
-				AwsResource res = new AwsResource(cluster.getClusterIdentifier(), "", AwsResourceType.Redshift, region);
+				AwsResource res = new AwsResource(cluster.getClusterIdentifier(), accountId, AwsResourceType.Redshift, region);
 				res.addInfo("DBName", cluster.getDBName());
 				stats.add(res);
 			}
@@ -461,46 +558,55 @@ public final class AwsStatsCollector {
 	 * @param resourceType
 	 *            Type of resource to be searched
 	 */
-	public static void scanResources(AwsStats stats, AWSCredentials credentials, Regions region, AwsResourceType resourceType) {
+	public static void scanResources(AwsStats stats, AWSCredentials credentials, String accountId, Regions region, AwsResourceType resourceType) {
 		switch (resourceType) {
+		case CloudFront:
+			scanCloudFront(stats, credentials, accountId, region);
+			break;
+		case CloudSearch:
+			scanCloudSearch(stats, credentials, accountId, region);
+			break;
+		case CloudWatch:
+			scanCloudWatch(stats, credentials, accountId, region);
+			break;
 		case DynamoDB:
-			scanDynamoDB(stats, credentials, region);
+			scanDynamoDB(stats, credentials, accountId, region);
 			break;
 		case EC2:
-			scanEC2(stats, credentials, region);
+			scanEC2(stats, credentials, accountId, region);
 			break;
 		case ElastiCache:
-			scanElastiCache(stats, credentials, region);
+			scanElastiCache(stats, credentials, accountId, region);
 			break;
 		case ElasticMapReduce:
-			scanElasticMapReduce(stats, credentials, region);
+			scanElasticMapReduce(stats, credentials, accountId, region);
 			break;
 		case ElasticTranscoder:
-			scanElasticTranscoder(stats, credentials, region);
+			scanElasticTranscoder(stats, credentials, accountId, region);
 			break;
 		case Glacier:
-			scanGlacier(stats, credentials, region);
+			scanGlacier(stats, credentials, accountId, region);
 			break;
 		case Kinesis:
-			scanKinesis(stats, credentials, region);
+			scanKinesis(stats, credentials, accountId, region);
 			break;
 		case RDS:
-			scanRDS(stats, credentials, region);
+			scanRDS(stats, credentials, accountId, region);
 			break;
 		case Redshift:
-			scanRedshift(stats, credentials, region);
+			scanRedshift(stats, credentials, accountId, region);
 			break;
 		case S3:
-			scanS3(stats, credentials, region);
+			scanS3(stats, credentials, accountId, region);
 			break;
 		case SNS:
-			scanSNS(stats, credentials, region);
+			scanSNS(stats, credentials, accountId, region);
 			break;
 		case SQS:
-			scanSQS(stats, credentials, region);
+			scanSQS(stats, credentials, accountId, region);
 			break;
 		case SimpleDB:
-			scanSimpleDB(stats, credentials, region);
+			scanSimpleDB(stats, credentials, accountId, region);
 			break;
 		case Unknown:
 			break;
@@ -515,15 +621,15 @@ public final class AwsStatsCollector {
 	 * @param credentials
 	 *            currently used credentials object.
 	 */
-	public static void scanS3(AwsStats stats, AWSCredentials credentials, Regions region) {
+	public static void scanS3(AwsStats stats, AWSCredentials credentials, String accountId, Regions region) {
 		LOG.debug("Scan for S3 in region " + region.getName());
 
 		/*
 		 * Amazon S3
-		 *
+		 * 
 		 * The AWS S3 client allows you to manage buckets and programmatically
 		 * put and get objects to those buckets.
-		 *
+		 * 
 		 * In this sample, we use an S3 client to iterate over all the buckets
 		 * owned by the current user, and all the object metadata in each
 		 * bucket, to obtain a total object and space usage count. This is done
@@ -561,7 +667,8 @@ public final class AwsStatsCollector {
 
 				totalItems += items;
 				totalSize += size;
-				AwsResource res = new AwsResource(bucket.getName(), bucket.getOwner().getDisplayName(), AwsResourceType.S3, region);
+				AwsResource res = new AwsResource(bucket.getName(), accountId, AwsResourceType.S3, region);
+				res.addInfo("Owner", bucket.getOwner().getDisplayName());
 				res.addInfo("SizeInBytes", size);
 				res.addInfo("Objects", items);
 				stats.add(res);
@@ -597,7 +704,7 @@ public final class AwsStatsCollector {
 	 * @param credentials
 	 *            currently used credentials object.
 	 */
-	public static void scanSimpleDB(AwsStats stats, AWSCredentials credentials, Regions region) {
+	public static void scanSimpleDB(AwsStats stats, AWSCredentials credentials, String accountId, Regions region) {
 		if (region == Regions.EU_CENTRAL_1)
 			return;
 
@@ -605,10 +712,10 @@ public final class AwsStatsCollector {
 
 		/*
 		 * Amazon SimpleDB
-		 *
+		 * 
 		 * The AWS SimpleDB client allows you to query and manage your data
 		 * stored in SimpleDB domains (similar to tables in a relational DB).
-		 *
+		 * 
 		 * In this sample, we use a SimpleDB client to iterate over all the
 		 * domains owned by the current user, and add up the number of items
 		 * (similar to rows of data in a relational DB) in each domain.
@@ -626,7 +733,7 @@ public final class AwsStatsCollector {
 				DomainMetadataResult domainMetadata = simpleDB.domainMetadata(metadataRequest);
 				int items = domainMetadata.getItemCount();
 				totalItems += items;
-				AwsResource res = new AwsResource(domainName, "", AwsResourceType.SimpleDB, region);
+				AwsResource res = new AwsResource(domainName, accountId, AwsResourceType.SimpleDB, region);
 				res.addInfo("Items", items);
 				stats.add(res);
 			}
@@ -648,7 +755,7 @@ public final class AwsStatsCollector {
 	 * @param credentials
 	 *            currently used credentials object.
 	 */
-	public static void scanSNS(AwsStats stats, AWSCredentials credentials, Regions region) {
+	public static void scanSNS(AwsStats stats, AWSCredentials credentials, String accountId, Regions region) {
 		LOG.debug("Scan for SNS in region " + region.getName());
 
 		try {
@@ -657,7 +764,7 @@ public final class AwsStatsCollector {
 
 			int totalApps = 0;
 			for (PlatformApplication app : sns.listPlatformApplications().getPlatformApplications()) {
-				AwsResource res = new AwsResource(app.getPlatformApplicationArn(), "", AwsResourceType.SNS, region);
+				AwsResource res = new AwsResource(app.getPlatformApplicationArn(), accountId, AwsResourceType.SNS, region);
 				stats.add(res);
 				totalApps++;
 			}
@@ -666,7 +773,8 @@ public final class AwsStatsCollector {
 
 			int totalSubscriptions = 0;
 			for (Subscription subscription : sns.listSubscriptions().getSubscriptions()) {
-				AwsResource res = new AwsResource(subscription.getSubscriptionArn(), subscription.getOwner(), AwsResourceType.SNS, region);
+				AwsResource res = new AwsResource(subscription.getSubscriptionArn(), accountId, AwsResourceType.SNS, region);
+				res.addInfo("Owner", subscription.getOwner());
 				res.addInfo("Endpoint", subscription.getEndpoint());
 				res.addInfo("TopicArn", subscription.getTopicArn());
 				stats.add(res);
@@ -690,7 +798,7 @@ public final class AwsStatsCollector {
 	 * @param credentials
 	 *            currently used credentials object.
 	 */
-	public static void scanSQS(AwsStats stats, AWSCredentials credentials, Regions region) {
+	public static void scanSQS(AwsStats stats, AWSCredentials credentials, String accountId, Regions region) {
 		LOG.debug("Scan for SQS in region " + region.getName());
 
 		try {
@@ -699,7 +807,7 @@ public final class AwsStatsCollector {
 
 			int totalQueues = 0;
 			for (String queueUrl : sqs.listQueues().getQueueUrls()) {
-				AwsResource res = new AwsResource(queueUrl, "", AwsResourceType.SQS, region);
+				AwsResource res = new AwsResource(queueUrl, accountId, AwsResourceType.SQS, region);
 				stats.add(res);
 				totalQueues++;
 			}
@@ -717,6 +825,9 @@ public final class AwsStatsCollector {
 	private int cacheDuration;
 
 	private AwsStats stats = null;
+
+	@Value("${connection.regions:EU_WEST_1, EU_CENTRAL_1}")
+	private String[] supportedRegions;
 
 	/**
 	 * Clear the cache with statistics about resource usage so that next request
@@ -737,15 +848,15 @@ public final class AwsStatsCollector {
 	 * In this sample, we use an EC2 client to get a list of all the
 	 * availability zones, and all instances sorted by reservation id.
 	 */
-	public void collectDataFromAws() {
+	private void collectDataFromAws(AwsStats currentStats) {
 		LOG.info("----------------------------------------------------------------------");
 		LOG.info("Login to AWS and collect resource list");
 		LOG.info("----------------------------------------------------------------------");
 
 		DateTime startTime = DateTime.now();
-		AwsStats currentStats = new AwsStats();
 		ArrayList<Thread> threads = new ArrayList<Thread>();
 		AWSCredentials credentials = null;
+		String accountId = "";
 		lastCollectTime = DateTime.now();
 
 		try {
@@ -761,10 +872,41 @@ public final class AwsStatsCollector {
 						+ "Please make sure that your credentials file is at the correct " + "location (~/.aws/credentials), and is in valid format.", e);
 			}
 
+			LOG.info("Supported regions: " + Arrays.toString(supportedRegions));
 			ArrayList<Regions> regions = new ArrayList<Regions>();
-			regions.add(Regions.EU_WEST_1);
-			regions.add(Regions.EU_CENTRAL_1);
-			// regions.add(Regions.US_WEST_1);
+			for (String s : supportedRegions) {
+				regions.add(Regions.valueOf(s));
+			}
+
+			try {
+				AmazonIdentityManagementClient iamClient = new AmazonIdentityManagementClient(credentials);
+				LOG.info("Current AWS user: " + iamClient.getUser().getUser().getUserId());
+				accountId = iamClient.getUser().getUser().getArn();
+			} catch (AmazonServiceException e) {
+				LOG.info("Cannot lookup account id: " + e.getMessage());
+				if (e.getErrorCode().compareTo("AccessDenied") == 0) {
+					String arn = null;
+					String msg = e.getMessage();
+					// User:
+					// arn:aws:iam::123456789012:user/division_abc/subdivision_xyz/Bob
+					// is not authorized to perform: iam:GetUser on resource:
+					// arn:aws:iam::123456789012:user/division_abc/subdivision_xyz/Bob
+					// arn:aws:sts::123456789012:assumed-role/Shibboleth-PowerUser/username
+					int arnIdx = msg.indexOf("arn:aws");
+					if (arnIdx != -1) {
+						int arnSpace = msg.indexOf(" ", arnIdx);
+						arn = msg.substring(arnIdx, arnSpace);
+
+						// Remove "arn:aws:sts::"
+						arn = arn.substring(13, 13 + 12);
+					}
+					accountId = arn;
+				}
+			} catch (Exception ex) {
+				LOG.error("Cannot lookup account id: " + ex.getMessage());
+			}
+
+			LOG.info("Current AWS account ID: " + accountId);
 
 			ArrayList<AwsResourceType> resourceTypes = new ArrayList<AwsResourceType>();
 			for (AwsResourceType resourceType : AwsResourceType.values()) {
@@ -776,14 +918,14 @@ public final class AwsStatsCollector {
 			}
 
 			// scan S3 only once
-			AwsCollectorThread thread = new AwsCollectorThread(currentStats, credentials, Regions.DEFAULT_REGION, AwsResourceType.S3);
+			AwsCollectorThread thread = new AwsCollectorThread(currentStats, credentials, accountId, Regions.DEFAULT_REGION, AwsResourceType.S3);
 			threads.add(thread);
 			thread.start();
 
 			// scan each resource type in each region
 			for (Regions region : regions) {
 				for (AwsResourceType resourceType : resourceTypes) {
-					thread = new AwsCollectorThread(currentStats, credentials, region, resourceType);
+					thread = new AwsCollectorThread(currentStats, credentials, accountId, region, resourceType);
 					threads.add(thread);
 					thread.start();
 				}
@@ -801,9 +943,21 @@ public final class AwsStatsCollector {
 		this.stats = currentStats;
 		DateTime duration = DateTime.now().minus(startTime.getMillis());
 		LOG.info("----------------------------------------------------------------------");
-		LOG.info("Collected " + currentStats.getSummary().getResources() + " resources in " + duration.getMillis() + " ms");
-		LOG.info("Cache duration: " + cacheDuration + " ms -> expires " + DateTime.now().plusMillis(cacheDuration).toString("MM/dd/yyyy HH:mm:ss"));
+		LOG.info("Collected " + currentStats.getSummary().getResources() + " resources in " + duration.getMillis() / 1000 + " sec");
+		LOG.info("Cache duration: " + cacheDuration / 1000 + " sec -> expires " + DateTime.now().plusMillis(cacheDuration).toString("MM/dd/yyyy HH:mm:ss"));
 		LOG.info("----------------------------------------------------------------------");
+	}
+
+	/**
+	 * @return filled statistics object containing all used resources.
+	 */
+	public AwsStats forceAddStats() {
+		if (this.stats == null) {
+			this.stats = new AwsStats();
+		}
+		collectDataFromAws(this.stats);
+
+		return stats;
 	}
 
 	/**
@@ -819,7 +973,7 @@ public final class AwsStatsCollector {
 	 */
 	public AwsStats getStats() {
 		if ((stats == null) || (stats.getItemCount() == 0) || ((DateTime.now().getMillis() - lastCollectTime.getMillis()) > cacheDuration)) {
-			collectDataFromAws();
+			collectDataFromAws(new AwsStats());
 		}
 
 		return stats;

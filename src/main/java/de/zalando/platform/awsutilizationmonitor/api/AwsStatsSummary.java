@@ -10,13 +10,21 @@ import java.util.TreeMap;
  *
  */
 public class AwsStatsSummary {
+	private int accounts;
 	private int apps;
-	private int owners;
+	private TreeMap<String, Integer> instancesByType = new TreeMap<String, Integer>();
 	private int regions;
 	private int resources;
 	private TreeMap<AwsResourceType, Integer> resourcesByType = new TreeMap<AwsResourceType, Integer>();
 	private int resourceTypes;
 	private int teams;
+
+	/**
+	 * @return the accounts
+	 */
+	public int getAccounts() {
+		return accounts;
+	}
 
 	/**
 	 * @return the apps
@@ -26,10 +34,10 @@ public class AwsStatsSummary {
 	}
 
 	/**
-	 * @return the owners
+	 * @return the instancesByType
 	 */
-	public int getOwners() {
-		return owners;
+	public TreeMap<String, Integer> getInstancesByType() {
+		return instancesByType;
 	}
 
 	/**
@@ -68,6 +76,14 @@ public class AwsStatsSummary {
 	}
 
 	/**
+	 * @param accounts
+	 *            the accounts to set
+	 */
+	public void setAccounts(int accounts) {
+		this.accounts = accounts;
+	}
+
+	/**
 	 * @param apps
 	 *            the apps to set
 	 */
@@ -76,11 +92,11 @@ public class AwsStatsSummary {
 	}
 
 	/**
-	 * @param owners
-	 *            the owners to set
+	 * @param instancesByType
+	 *            the instancesByType to set
 	 */
-	public void setOwners(int owners) {
-		this.owners = owners;
+	public void setInstancesByType(TreeMap<String, Integer> instancesByType) {
+		this.instancesByType = instancesByType;
 	}
 
 	/**

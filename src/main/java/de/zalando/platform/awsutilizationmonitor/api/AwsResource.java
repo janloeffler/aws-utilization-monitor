@@ -30,15 +30,14 @@ public class AwsResource extends TreeMap<String, Object> implements Comparable<A
 		return appName;
 	}
 
+	private String accountId = "";
 	private String name = "";
-	private String owner = "";
 	private Regions region = Regions.DEFAULT_REGION;
-
 	private AwsResourceType resourceType = AwsResourceType.Unknown;
 
-	public AwsResource(String name, String owner, AwsResourceType resourceType, Regions region) {
+	public AwsResource(String name, String accountId, AwsResourceType resourceType, Regions region) {
 		setName(name);
-		setOwner(owner);
+		setAccountId(accountId);
 		setResourceType(resourceType);
 		setRegion(region);
 	}
@@ -78,11 +77,31 @@ public class AwsResource extends TreeMap<String, Object> implements Comparable<A
 	}
 
 	/**
+	 * @return the accountId
+	 */
+	public String getAccountId() {
+		if (accountId == null)
+			return "";
+		else
+			return accountId;
+	}
+
+	/**
 	 * @return the name of an EC2 based app
 	 */
 	public String getAppName() {
 		if ((resourceType == AwsResourceType.EC2) && this.containsKey("Name"))
-			return RemoveVersionNumber(this.get("Name").toString());
+			return RemoveVersionNumber((String) this.get("Name"));
+		else
+			return null;
+	}
+
+	/**
+	 * @return the instance type of an EC2 based app
+	 */
+	public String getEC2InstanceType() {
+		if ((resourceType == AwsResourceType.EC2) && this.containsKey("InstanceType"))
+			return (String) this.get("InstanceType");
 		else
 			return null;
 	}
@@ -95,16 +114,6 @@ public class AwsResource extends TreeMap<String, Object> implements Comparable<A
 			return "";
 		else
 			return name;
-	}
-
-	/**
-	 * @return the owner
-	 */
-	public String getOwner() {
-		if (owner == null)
-			return "";
-		else
-			return owner;
 	}
 
 	/**
@@ -122,6 +131,29 @@ public class AwsResource extends TreeMap<String, Object> implements Comparable<A
 	}
 
 	/**
+	 * @return the team
+	 */
+	public String getTeam() {
+		if (this.containsKey("Team"))
+			return (String) this.get("Team");
+		else
+			return null;
+	}
+
+	/**
+	 * @param accountId
+	 *            the accountId to set
+	 */
+	public void setAccountId(String accountId) {
+		if (accountId == null) {
+			accountId = "";
+		}
+
+		this.accountId = accountId;
+		this.put("AccountId", accountId);
+	}
+
+	/**
 	 * @param name
 	 *            the name to set
 	 */
@@ -132,19 +164,6 @@ public class AwsResource extends TreeMap<String, Object> implements Comparable<A
 
 		this.name = name;
 		this.put("Name", name);
-	}
-
-	/**
-	 * @param owner
-	 *            the owner to set
-	 */
-	public void setOwner(String owner) {
-		if (owner == null) {
-			owner = "";
-		}
-
-		this.owner = owner;
-		this.put("Owner", owner);
 	}
 
 	/**
@@ -161,7 +180,23 @@ public class AwsResource extends TreeMap<String, Object> implements Comparable<A
 	 *            the resourceType to set
 	 */
 	public void setResourceType(AwsResourceType resourceType) {
+		if (resourceType == null) {
+			resourceType = AwsResourceType.Unknown;
+		}
+
 		this.resourceType = resourceType;
 		this.put("ResourceType", resourceType.name());
+	}
+
+	/**
+	 * @param team
+	 *            the team to set
+	 */
+	public void setTeam(String team) {
+		if (team == null) {
+			team = "";
+		}
+
+		this.put("Team", team);
 	}
 }

@@ -2,7 +2,6 @@ package de.zalando.platform.awsutilizationmonitor.api;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Enumeration;
 import java.util.Hashtable;
 import java.util.Random;
 import java.util.TreeMap;
@@ -15,7 +14,7 @@ import com.amazonaws.regions.Regions;
  */
 public class AwsStats {
 
-	private Hashtable<AwsResourceType, ArrayList<AwsResource>> resources = new Hashtable<AwsResourceType, ArrayList<AwsResource>>();
+	private ArrayList<AwsResource> resources = new ArrayList<AwsResource>();
 
 	/**
 	 * Add a new resource to statistics set.
@@ -24,20 +23,8 @@ public class AwsStats {
 	 *            AWS resource to be added to statistics result set.
 	 */
 	public void add(AwsResource res) {
-		if (res == null)
-			return;
-
-		if (res.getResourceType() == null) {
-			res.setResourceType(AwsResourceType.Unknown);
-		}
-
-		ArrayList<AwsResource> list = this.resources.get(res.getResourceType());
-		if (list == null) {
-			list = new ArrayList<AwsResource>();
-			list.add(res);
-			this.resources.put(res.getResourceType(), list);
-		} else {
-			list.add(res);
+		if ((res != null) && !resources.contains(res)) {
+			resources.add(res);
 		}
 	}
 
@@ -56,7 +43,7 @@ public class AwsStats {
 	 */
 	public void generateSampleData(int maxItems) {
 		String[] appNames = new String[] { "FeedTheWorld", "EmpireStrikesBack", "Imperator", "HelloWorld", "ShoppingCart", "AwsChecker" };
-		String[] owners = new String[] { "Mickey Mouse", "Max Mustermann", "Ironman", "Hackweek", "Superman", "Mr. Bond", "Overlord" };
+		String[] accounts = new String[] { "Mickey Mouse", "Max Mustermann", "Ironman", "Hackweek", "Superman", "Mr. Bond", "Overlord" };
 		Regions[] regions = new Regions[] { Regions.EU_WEST_1, Regions.EU_CENTRAL_1, Regions.US_EAST_1 };
 
 		Hashtable<AwsResourceType, String> prefixes = new Hashtable<AwsResourceType, String>();
@@ -76,26 +63,30 @@ public class AwsStats {
 				prefix = prefixes.get(resourceType);
 			}
 			String appName = prefix + appNames[r.nextInt(appNames.length - 1)];
-			String owner = owners[r.nextInt(owners.length - 1)];
+			String account = accounts[r.nextInt(accounts.length - 1)];
 			Regions region = regions[r.nextInt(regions.length - 1)];
 
-			add(new AwsResource(appName, owner, resourceType, region));
+			add(new AwsResource(appName, account, resourceType, region));
 		}
 	}
 
 	/**
-	 * @return all resources in one list.
+	 * Returns all accounts sorted alphabetically.
+	 *
+	 * @return sorted list of all accounts.
 	 */
-	public AwsResource[] getAllResources() {
-		ArrayList<AwsResource> results = new ArrayList<AwsResource>();
+	public String[] getAccounts() {
+		ArrayList<String> results = new ArrayList<String>();
 
-		for (ArrayList<AwsResource> list : this.resources.values()) {
-			results.addAll(list);
+		for (AwsResource res : resources) {
+			if (!results.contains(res.getAccountId())) {
+				results.add(res.getAccountId());
+			}
 		}
 
 		results.sort(null);
 
-		return results.toArray(new AwsResource[results.size()]);
+		return results.toArray(new String[results.size()]);
 	}
 
 	/**
@@ -146,12 +137,7 @@ public class AwsStats {
 	 * @return amount of resource items.
 	 */
 	public int getItemCount() {
-		int i = 0;
-		for (ArrayList<AwsResource> list : this.resources.values()) {
-			i += list.size();
-		}
-
-		return i;
+		return resources.size();
 	}
 
 	/**
@@ -160,34 +146,13 @@ public class AwsStats {
 	 * @return sorted list of all keys.
 	 */
 	public String[] getKeys() {
-		AwsResource[] list = getAllResources();
 		ArrayList<String> results = new ArrayList<String>();
 
-		for (AwsResource res : list) {
+		for (AwsResource res : resources) {
 			for (String key : res.keySet()) {
 				if (!results.contains(key)) {
 					results.add(key);
 				}
-			}
-		}
-
-		results.sort(null);
-
-		return results.toArray(new String[results.size()]);
-	}
-
-	/**
-	 * Returns all owners sorted alphabetically.
-	 *
-	 * @return sorted list of all owners.
-	 */
-	public String[] getOwners() {
-		AwsResource[] list = getAllResources();
-		ArrayList<String> results = new ArrayList<String>();
-
-		for (AwsResource res : list) {
-			if (!results.contains(res.getOwner())) {
-				results.add(res.getOwner());
 			}
 		}
 
@@ -202,10 +167,9 @@ public class AwsStats {
 	 * @return sorted list of all regions.
 	 */
 	public Regions[] getRegions() {
-		AwsResource[] list = getAllResources();
 		ArrayList<Regions> results = new ArrayList<Regions>();
 
-		for (AwsResource res : list) {
+		for (AwsResource res : resources) {
 			if (!results.contains(res.getRegion())) {
 				results.add(res.getRegion());
 			}
@@ -225,9 +189,7 @@ public class AwsStats {
 	 *         if resource cannot be found.
 	 */
 	public AwsResource getResource(String resourceName) {
-		AwsResource[] list = getAllResources();
-
-		for (AwsResource res : list) {
+		for (AwsResource res : resources) {
 			if (res.getName().equalsIgnoreCase(resourceName))
 				return res;
 		}
@@ -236,10 +198,12 @@ public class AwsStats {
 	}
 
 	/**
-	 * @return the resources
+	 * @return all resources in one list.
 	 */
-	public Hashtable<AwsResourceType, ArrayList<AwsResource>> getResources() {
-		return resources;
+	public AwsResource[] getResources() {
+		resources.sort(null);
+
+		return resources.toArray(new AwsResource[resources.size()]);
 	}
 
 	/**
@@ -249,30 +213,53 @@ public class AwsStats {
 	 *            resourceType e.g. EC2, S3, SimpleDB
 	 */
 	public AwsResource[] getResources(AwsResourceType resourceType) {
-		ArrayList<AwsResource> results = this.resources.get(resourceType);
+		ArrayList<AwsResource> results = new ArrayList<AwsResource>();
 
-		if (results == null)
-			return new AwsResource[0];
-		else {
-			results.sort(null);
-
-			return results.toArray(new AwsResource[results.size()]);
+		for (AwsResource res : resources) {
+			if (res.getResourceType().equals(resourceType)) {
+				results.add(res);
+			}
 		}
+
+		results.sort(null);
+
+		return results.toArray(new AwsResource[results.size()]);
 	}
 
 	/**
-	 * Get the resources of the specified owner.
+	 * Get the resources of the specified account.
 	 *
-	 * @param ownerName
-	 *            Name of the owner
-	 * @return Resources that belong to the specified owner.
+	 * @param accountName
+	 *            Name of the account
+	 * @return Resources that belong to the specified account.
 	 */
-	public AwsResource[] getResourcesByOwner(String ownerName) {
-		AwsResource[] list = getAllResources();
+	public AwsResource[] getResourcesByAccount(String accountName) {
 		ArrayList<AwsResource> results = new ArrayList<AwsResource>();
 
-		for (AwsResource res : list) {
-			if (res.getOwner().equalsIgnoreCase(ownerName)) {
+		for (AwsResource res : resources) {
+			if (res.getAccountId().equalsIgnoreCase(accountName)) {
+				results.add(res);
+			}
+		}
+
+		results.sort(null);
+
+		return results.toArray(new AwsResource[results.size()]);
+	}
+
+	/**
+	 * Get the resources of the specified EC2 instance type.
+	 *
+	 * @param instanceType
+	 *            Instance type of the EC2 based app
+	 * @return Resources that have a specified EC2 instance type.
+	 */
+	public AwsResource[] getResourcesByEC2InstanceType(String instanceType) {
+		ArrayList<AwsResource> results = new ArrayList<AwsResource>();
+
+		for (AwsResource res : resources) {
+			String type = res.getEC2InstanceType();
+			if ((type != null) && type.equalsIgnoreCase(instanceType)) {
 				results.add(res);
 			}
 		}
@@ -290,11 +277,10 @@ public class AwsStats {
 	 * @return Resources that belong to the specified region.
 	 */
 	public AwsResource[] getResourcesByRegion(Regions region) {
-		AwsResource[] list = getAllResources();
 		ArrayList<AwsResource> results = new ArrayList<AwsResource>();
 
-		for (AwsResource res : list) {
-			if (res.getRegion().getName().equalsIgnoreCase(region.getName())) {
+		for (AwsResource res : resources) {
+			if (res.getRegion().equals(region)) {
 				results.add(res);
 			}
 		}
@@ -305,6 +291,57 @@ public class AwsStats {
 	}
 
 	/**
+	 * Get the resources of the specified team.
+	 *
+	 * @param teamName
+	 *            Name of the team
+	 * @return Resources that belong to the specified team.
+	 */
+	public AwsResource[] getResourcesByTeam(String teamName) {
+		ArrayList<AwsResource> results = new ArrayList<AwsResource>();
+
+		for (AwsResource res : resources) {
+			if ((res.getTeam() != null) && res.getTeam().equalsIgnoreCase(teamName)) {
+				results.add(res);
+			}
+		}
+
+		results.sort(null);
+
+		return results.toArray(new AwsResource[results.size()]);
+	}
+
+	/**
+	 * @return all resources in one list grouped by AccountId, ResourceType each
+	 *         containing a list of resources.
+	 */
+	public Hashtable<String, Hashtable<AwsResourceType, ArrayList<AwsResource>>> getResourceTree() {
+		Hashtable<String, Hashtable<AwsResourceType, ArrayList<AwsResource>>> results = new Hashtable<String, Hashtable<AwsResourceType, ArrayList<AwsResource>>>();
+
+		for (AwsResource res : resources) {
+			Hashtable<AwsResourceType, ArrayList<AwsResource>> resourcesByAccount;
+			if (results.containsKey(res.getAccountId())) {
+				resourcesByAccount = results.get(res.getAccountId());
+			} else {
+				resourcesByAccount = new Hashtable<AwsResourceType, ArrayList<AwsResource>>();
+				results.put(res.getAccountId(), resourcesByAccount);
+			}
+
+			ArrayList<AwsResource> resourcesByResourceType;
+			if (resourcesByAccount.containsKey(res.getResourceType())) {
+				resourcesByResourceType = resourcesByAccount.get(res.getResourceType());
+			} else {
+				resourcesByResourceType = new ArrayList<AwsResource>();
+				resourcesByAccount.put(res.getResourceType(), resourcesByResourceType);
+			}
+
+			resourcesByResourceType.add(res);
+		}
+
+		return results;
+	}
+
+	/**
 	 * Returns statistics as summary.
 	 *
 	 * @return statistic summary.
@@ -312,18 +349,26 @@ public class AwsStats {
 	public AwsStatsSummary getSummary() {
 		AwsStatsSummary summary = new AwsStatsSummary();
 
-		summary.setResources(getItemCount());
-		summary.setOwners(getOwners().length);
+		summary.setResources(resources.size());
+		summary.setAccounts(getAccounts().length);
 		summary.setRegions(getRegions().length);
 		summary.setResourceTypes(getUsedResourceTypes().length);
-		summary.setTeams(getValues("Team").length);
+		summary.setTeams(getTeams().length);
 		summary.setApps(getApps().length);
+
 		TreeMap<AwsResourceType, Integer> resourcesByType = new TreeMap<AwsResourceType, Integer>();
 		for (AwsResourceType resourceType : getUsedResourceTypes()) {
 			int amount = getResources(resourceType).length;
 			resourcesByType.put(resourceType, amount);
 		}
 		summary.setResourcesByType(resourcesByType);
+
+		TreeMap<String, Integer> instancesByType = new TreeMap<String, Integer>();
+		for (String instanceType : getUsedEC2InstanceTypes()) {
+			int amount = getResourcesByEC2InstanceType(instanceType).length;
+			instancesByType.put(instanceType, amount);
+		}
+		summary.setInstancesByType(instancesByType);
 
 		return summary;
 	}
@@ -344,13 +389,33 @@ public class AwsStats {
 	 *
 	 * @return sorted list of all used resource types.
 	 */
+	public String[] getUsedEC2InstanceTypes() {
+		ArrayList<String> results = new ArrayList<String>();
+
+		for (AwsResource res : resources) {
+			String instanceType = res.getEC2InstanceType();
+			if ((instanceType != null) && (instanceType.length() > 0) && !results.contains(instanceType)) {
+				results.add(instanceType);
+			}
+		}
+
+		results.sort(null);
+
+		return results.toArray(new String[results.size()]);
+	}
+
+	/**
+	 * Returns all used resource types (e.g. EC2, S3) of used resources.
+	 *
+	 * @return sorted list of all used resource types.
+	 */
 	public AwsResourceType[] getUsedResourceTypes() {
 		ArrayList<AwsResourceType> results = new ArrayList<AwsResourceType>();
 
-		// iterate through Hashtable keys Enumeration
-		Enumeration<AwsResourceType> e = this.resources.keys();
-		while (e.hasMoreElements()) {
-			results.add(e.nextElement());
+		for (AwsResource res : resources) {
+			if (!results.contains(res.getResourceType())) {
+				results.add(res.getResourceType());
+			}
 		}
 
 		results.sort(null);
@@ -366,10 +431,9 @@ public class AwsStats {
 	 * @return sorted list of all keys.
 	 */
 	public Object[] getValues(String key) {
-		AwsResource[] list = getAllResources();
 		ArrayList<Object> results = new ArrayList<Object>();
 
-		for (AwsResource res : list) {
+		for (AwsResource res : resources) {
 			if (res.containsKey(key)) {
 				Object value = res.get(key);
 
@@ -392,11 +456,10 @@ public class AwsStats {
 	 * @return list of all matching resources
 	 */
 	public AwsResource[] searchResources(String searchPattern) {
-		AwsResource[] list = getAllResources();
 		ArrayList<AwsResource> results = new ArrayList<AwsResource>();
 		String s = searchPattern.toLowerCase();
 
-		for (AwsResource res : list) {
+		for (AwsResource res : resources) {
 			if (res.containsPattern(s)) {
 				results.add(res);
 			}
@@ -417,10 +480,9 @@ public class AwsStats {
 	 * @return list of all matching resources
 	 */
 	public AwsResource[] searchResources(String key, String value) {
-		AwsResource[] list = getAllResources();
 		ArrayList<AwsResource> results = new ArrayList<AwsResource>();
 
-		for (AwsResource res : list) {
+		for (AwsResource res : resources) {
 			if (res.containsKey(key) && res.get(key).toString().equalsIgnoreCase(value)) {
 				results.add(res);
 			}
@@ -429,13 +491,5 @@ public class AwsStats {
 		results.sort(null);
 
 		return results.toArray(new AwsResource[results.size()]);
-	}
-
-	/**
-	 * @param resources
-	 *            the resources to set
-	 */
-	public void setResources(Hashtable<AwsResourceType, ArrayList<AwsResource>> resources) {
-		this.resources = resources;
 	}
 }

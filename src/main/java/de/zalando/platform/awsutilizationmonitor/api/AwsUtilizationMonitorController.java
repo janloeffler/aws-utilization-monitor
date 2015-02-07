@@ -25,6 +25,28 @@ final class AwsUtilizationMonitorController {
 		this.collector = collector;
 	}
 
+	@RequestMapping("/accounts/")
+	@ResponseBody
+	String[] accounts() {
+		LOG.info("called /accounts/");
+
+		return collector.getStats().getAccounts();
+	}
+
+	@RequestMapping("/accounts/{accountName}")
+	@ResponseBody
+	AwsResource[] accounts(@PathVariable String accountName) {
+		LOG.info("called /accounts/" + accountName);
+
+		AwsResource[] results = collector.getStats().getResourcesByAccount(accountName);
+
+		if ((results == null) || (results.length == 0)) {
+			LOG.info("No resource found for account \"" + accountName + "\"!");
+		}
+
+		return results;
+	}
+
 	@RequestMapping("/apps/")
 	@ResponseBody
 	String[] apps() {
@@ -63,6 +85,25 @@ final class AwsUtilizationMonitorController {
 		return "Cache empty";
 	}
 
+	String encodeParam(String param) {
+		try {
+			// UrlEscapers.urlPathSegmentEscaper().escape(s1)
+			return URLEncoder.encode(param, "UTF-8");
+		} catch (UnsupportedEncodingException e) {
+			LOG.error("Cannot encode \"" + param + "\": " + e.getMessage());
+		}
+
+		return param;
+	}
+
+	@RequestMapping("/force/")
+	@ResponseBody
+	AwsStats force() {
+		LOG.info("called /force/");
+
+		return collector.forceAddStats();
+	}
+
 	@RequestMapping("/health/")
 	@ResponseBody
 	String health() {
@@ -77,21 +118,47 @@ final class AwsUtilizationMonitorController {
 		return "<html><header><style>p, li, ul, a { font-family:'Courier New', Arial; }</style></header><body><h1>AWS Utilization Statistics</h1><p><ul>"
 				+ "<li><a href=/apps/>/apps/</a> List EC2 based apps</li>"
 				+ "<li><a href=/apps/app_1/>/apps/{app_name}/</a> Show EC2 based apps with name \"app_1\"</li>"
+				+ "<li><a href=/instancetypes/>/instancetypes/</a> List used EC2 instance types</li>"
+				+ "<li><a href=/instancetypes/"
+				+ encodeParam("t2.micro")
+				+ "/>/instancetypes/{instance_type}/</a> Show EC2 based apps with instance type \"t2.micro\"</li>"
 				+ "<li><a href=/resources/>/resources/</a> List resources</li>"
 				+ "<li><a href=/resources/app_1/>/resources/{resource_name}/</a> Show resources with name \"app_1\"</li>"
 				+ "<li><a href=/keys/>/keys/</a> List keys</li>"
 				+ "<li><a href=/keys/PublicDnsName/>/keys/{key_name}/</a> Show resources that contain a value with the key \"PublicDnsName\"</li>"
 				+ "<li><a href=/keys/Team/>/keys/Team/</a> List team names if \"team\" tag was specified</li>"
-				+ "<li><a href=/owners/>/owners/</a> List owners</li>"
-				+ "<li><a href=/owners/Jan%20Löffler/>/owners/{owner_name}/</a> Show resources used by owner with name \"Jan Löffler\"</li>"
+				+ "<li><a href=/accounts/>/accounts/</a> List accounts</li>"
+				+ "<li><a href=/accounts/123456789012/>/accounts/{account_name}/</a> Show resources used by account with name \"123456789012\"</li>"
 				+ "<li><a href=/regions/>/regions/</a> List regions</li>"
-				+ "<li><a href=/regions/EU-WEST-1/>/regions/{region_name}/</a> Show resources used by region with name \"EU-WEST-1\"</li>"
+				+ "<li><a href=/regions/EU_WEST_1/>/regions/{region_name}/</a> Show resources used by region with name \"EU_WEST_1\"</li>"
 				+ "<li><a href=/search/banana/>/search/{search_pattern}/</a> Show app with name \"banana\"</li>"
 				+ "<li><a href=/values/Team/Platform/>/values/{key_name}/{value_pattern}/</a> Show resources that contain a value with the key \"Team\" and the pattern \"Platform\"</li>"
 				+ "<li><a href=/statistics/>/statistics/</a> Show statistics about resource usage</li>"
 				+ "<li><a href=/summary/>/summary/</a> Show summary KPIs only about resource usage</li>"
 				+ "<li><a href=/test/>/test/</a> Generate test data</li>" + "<li><a href=/test/30>/test/{maxItems}</a> Generate test data with 30 items</li>"
 				+ "<li><a href=/clear/>/clear/</a> Clear data cache</li>" + "<li><a href=/health/>/health/</a> Show health</li>" + "</ul></p></body></html>";
+	}
+
+	@RequestMapping("/instancetypes/")
+	@ResponseBody
+	String[] instancetypes() {
+		LOG.info("called /instancetypes/");
+
+		return collector.getStats().getUsedEC2InstanceTypes();
+	}
+
+	@RequestMapping("/instancetypes/{instanceType}")
+	@ResponseBody
+	AwsResource[] instancetypes(@PathVariable String instanceType) {
+		LOG.info("called /instancetypes/" + instanceType);
+
+		AwsResource[] res = collector.getStats().getResourcesByEC2InstanceType(instanceType);
+
+		if ((res == null) || (res.length == 0)) {
+			LOG.info("No app found with instance type \"" + instanceType + "\"!");
+		}
+
+		return res;
 	}
 
 	@RequestMapping("/keys/")
@@ -112,34 +179,6 @@ final class AwsUtilizationMonitorController {
 
 		if ((results == null) || (results.length == 0)) {
 			LOG.info("No resource found with key \"" + keyName + "\"!");
-		}
-
-		return results;
-	}
-
-	@RequestMapping("/owners/")
-	@ResponseBody
-	String[] owners() {
-		LOG.info("called /owners/");
-
-		return collector.getStats().getOwners();
-	}
-
-	@RequestMapping("/owners/{ownerName}")
-	@ResponseBody
-	AwsResource[] owners(@PathVariable String ownerName) {
-		try {
-			ownerName = URLDecoder.decode(ownerName, "UTF-8");
-		} catch (UnsupportedEncodingException e) {
-			LOG.error("Cannot decode \"" + ownerName + "\": " + e.getMessage());
-		}
-
-		LOG.info("called /owners/" + ownerName);
-
-		AwsResource[] results = collector.getStats().getResourcesByOwner(ownerName);
-
-		if ((results == null) || (results.length == 0)) {
-			LOG.info("No resource found for owner \"" + ownerName + "\"!");
 		}
 
 		return results;
@@ -217,12 +256,13 @@ final class AwsUtilizationMonitorController {
 		AwsStats stats = collector.getStats();
 		StringBuilder s = new StringBuilder();
 
-		AwsResource[] resources = stats.getAllResources();
-		String[] owners = stats.getOwners();
+		AwsResource[] resources = stats.getResources();
+		String[] accounts = stats.getAccounts();
 		Regions[] regions = stats.getRegions();
 		AwsResourceType[] resourceTypes = stats.getUsedResourceTypes();
-		String[] teams = (String[]) stats.getValues("Team");
+		String[] teams = stats.getTeams();
 		String[] apps = stats.getApps();
+		String[] instanceTypes = stats.getUsedEC2InstanceTypes();
 
 		s.append("<html><header><style>p, li, ul, a { font-family:'Courier New', Arial; }</style></header><body><h1>AWS Utilization Statistics</h1><p>"
 				+ "<a href=/>Back to overview</a><ul>" + "<li><a href=/resources/>" + resources.length + "</a> resources used</li>");
@@ -247,16 +287,12 @@ final class AwsUtilizationMonitorController {
 
 		s.append("</ul>");
 
-		/* owners */
-		s.append("<li><a href=/owners/>" + owners.length + "</a> owners</li>" + "<ul>");
+		/* accounts */
+		s.append("<li><a href=/accounts/>" + accounts.length + "</a> accounts</li>" + "<ul>");
 
-		for (String ownerName : owners) {
-			int amount = stats.getResourcesByOwner(ownerName).length;
-			try {
-				s.append("<li><a href=/owners/" + URLEncoder.encode(ownerName, "UTF-8") + ">" + amount + "</a> resources by \"" + ownerName + "\"</li>");
-			} catch (UnsupportedEncodingException e) {
-				LOG.error("Cannot encode \"" + ownerName + "\": " + e.getMessage());
-			}
+		for (String accountName : accounts) {
+			int amount = stats.getResourcesByAccount(accountName).length;
+			s.append("<li><a href=/accounts/" + accountName + ">" + amount + "</a> resources by \"" + accountName + "\"</li>");
 		}
 
 		s.append("</ul>");
@@ -266,25 +302,27 @@ final class AwsUtilizationMonitorController {
 
 		for (String teamName : teams) {
 			int amount = stats.searchResources("Team", teamName).length;
-			try {
-				s.append("<li><a href=/values/Team/" + URLEncoder.encode(teamName, "UTF-8") + ">" + amount + "</a> resources by \"" + teamName + "\"</li>");
-			} catch (UnsupportedEncodingException e) {
-				LOG.error("Cannot encode \"" + teamName + "\": " + e.getMessage());
-			}
+			s.append("<li><a href=/values/Team/" + encodeParam(teamName) + ">" + amount + "</a> resources by \"" + teamName + "\"</li>");
 		}
 
 		s.append("</ul>");
 
-		/* apps */
+		/* EC2 apps */
 		s.append("<li><a href=/apps/>" + apps.length + "</a> EC2 based apps</li>" + "<ul>");
 
 		for (String appName : apps) {
 			int amount = stats.getAppInstances(appName).length;
-			try {
-				s.append("<li><a href=/apps/" + URLEncoder.encode(appName, "UTF-8") + ">" + amount + "</a> instances of \"" + appName + "\"</li>");
-			} catch (UnsupportedEncodingException e) {
-				LOG.error("Cannot encode \"" + appName + "\": " + e.getMessage());
-			}
+			s.append("<li><a href=/apps/" + encodeParam(appName) + ">" + amount + "</a> instances of \"" + appName + "\"</li>");
+		}
+
+		s.append("</ul>");
+
+		/* EC2 instance types */
+		s.append("<li><a href=/instancetypes/>" + instanceTypes.length + "</a> used EC2 instance types</li>" + "<ul>");
+
+		for (String instanceType : instanceTypes) {
+			int amount = stats.getResourcesByEC2InstanceType(instanceType).length;
+			s.append("<li><a href=/instancetypes/" + encodeParam(instanceType) + ">" + amount + "</a> instances with \"" + instanceType + "\"</li>");
 		}
 
 		s.append("</ul>");

@@ -8,7 +8,5 @@ package de.zalando.platform.awsutilizationmonitor.api;
  *
  */
 public enum AwsResourceType {
-	DynamoDB,
-
-	EC2, ElastiCache, ElasticMapReduce, ElasticTranscoder, Glacier, Kinesis, RDS, Redshift, S3, SimpleDB, SNS, SQS, Unknown
+	CloudFront, CloudSearch, CloudWatch, DynamoDB, EC2, ElastiCache, ElasticMapReduce, ElasticTranscoder, Glacier, Kinesis, RDS, Redshift, S3, SimpleDB, SNS, SQS, Unknown
 }
