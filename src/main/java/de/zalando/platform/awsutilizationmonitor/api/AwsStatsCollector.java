@@ -626,10 +626,10 @@ public final class AwsStatsCollector {
 
 		/*
 		 * Amazon S3
-		 * 
+		 *
 		 * The AWS S3 client allows you to manage buckets and programmatically
 		 * put and get objects to those buckets.
-		 * 
+		 *
 		 * In this sample, we use an S3 client to iterate over all the buckets
 		 * owned by the current user, and all the object metadata in each
 		 * bucket, to obtain a total object and space usage count. This is done
@@ -712,10 +712,10 @@ public final class AwsStatsCollector {
 
 		/*
 		 * Amazon SimpleDB
-		 * 
+		 *
 		 * The AWS SimpleDB client allows you to query and manage your data
 		 * stored in SimpleDB domains (similar to tables in a relational DB).
-		 * 
+		 *
 		 * In this sample, we use a SimpleDB client to iterate over all the
 		 * domains owned by the current user, and add up the number of items
 		 * (similar to rows of data in a relational DB) in each domain.
@@ -834,7 +834,9 @@ public final class AwsStatsCollector {
 	 * of getStats() loads resource information directly from AWS again.
 	 */
 	public void clearCache() {
-		this.stats.clear();
+		if (this.stats != null) {
+			this.stats.clear();
+		}
 		this.stats = null;
 		LOG.info("Cache cleared");
 	}
