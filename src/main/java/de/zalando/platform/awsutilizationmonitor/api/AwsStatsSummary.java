@@ -12,11 +12,14 @@ import java.util.TreeMap;
 public class AwsStatsSummary {
 	private int accounts;
 	private int apps;
+	private int ec2Instances;
 	private TreeMap<String, Integer> instancesByType = new TreeMap<String, Integer>();
 	private int regions;
 	private int resources;
 	private TreeMap<AwsResourceType, Integer> resourcesByType = new TreeMap<AwsResourceType, Integer>();
 	private int resourceTypes;
+	private long s3DataSizeInGb;
+	private long s3Objects;
 	private int teams;
 
 	/**
@@ -31,6 +34,13 @@ public class AwsStatsSummary {
 	 */
 	public int getApps() {
 		return apps;
+	}
+
+	/**
+	 * @return the ec2Instances
+	 */
+	public int getEc2Instances() {
+		return ec2Instances;
 	}
 
 	/**
@@ -69,6 +79,20 @@ public class AwsStatsSummary {
 	}
 
 	/**
+	 * @return the s3DataSizeInGb
+	 */
+	public long getS3DataSizeInGb() {
+		return s3DataSizeInGb;
+	}
+
+	/**
+	 * @return the s3Objects
+	 */
+	public long getS3Objects() {
+		return s3Objects;
+	}
+
+	/**
 	 * @return the teams
 	 */
 	public int getTeams() {
@@ -89,6 +113,14 @@ public class AwsStatsSummary {
 	 */
 	public void setApps(int apps) {
 		this.apps = apps;
+	}
+
+	/**
+	 * @param ec2Instances
+	 *            the ec2Instances to set
+	 */
+	public void setEc2Instances(int ec2Instances) {
+		this.ec2Instances = ec2Instances;
 	}
 
 	/**
@@ -129,6 +161,22 @@ public class AwsStatsSummary {
 	 */
 	public void setResourceTypes(int resourceTypes) {
 		this.resourceTypes = resourceTypes;
+	}
+
+	/**
+	 * @param s3DataSizeInGb
+	 *            the s3DataSizeInGb to set
+	 */
+	public void setS3DataSizeInGb(long s3DataSizeInGb) {
+		this.s3DataSizeInGb = s3DataSizeInGb;
+	}
+
+	/**
+	 * @param s3Objects
+	 *            the s3Objects to set
+	 */
+	public void setS3Objects(long s3Objects) {
+		this.s3Objects = s3Objects;
 	}
 
 	/**

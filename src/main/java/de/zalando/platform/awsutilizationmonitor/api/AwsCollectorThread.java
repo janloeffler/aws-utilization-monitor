@@ -38,13 +38,13 @@ public class AwsCollectorThread extends Thread {
 
 	/*
 	 * (non-Javadoc)
-	 * 
+	 *
 	 * @see java.lang.Thread#run()
 	 */
 	@Override
 	public void run() {
 		try {
-			LOG.info("Start thread for " + resourceType + " in region " + region.getName());
+			LOG.debug("Start thread for " + resourceType + " in region " + region.getName());
 			AwsStatsCollector.scanResources(stats, credentials, accountId, region, resourceType);
 		} catch (Exception e) {
 			LOG.error("Exception in thread for " + resourceType + " in region " + region.getName() + ": " + e.getMessage());

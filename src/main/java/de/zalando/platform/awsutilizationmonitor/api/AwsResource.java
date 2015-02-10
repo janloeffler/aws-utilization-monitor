@@ -35,6 +35,12 @@ public class AwsResource extends TreeMap<String, Object> implements Comparable<A
 	private Regions region = Regions.DEFAULT_REGION;
 	private AwsResourceType resourceType = AwsResourceType.Unknown;
 
+	/**
+	 * @param name
+	 * @param accountId
+	 * @param resourceType
+	 * @param region
+	 */
 	public AwsResource(String name, String accountId, AwsResourceType resourceType, Regions region) {
 		setName(name);
 		setAccountId(accountId);
@@ -48,16 +54,39 @@ public class AwsResource extends TreeMap<String, Object> implements Comparable<A
 	 * @param value
 	 *            the value to set
 	 */
+	public void addInfo(AwsTag key, Object value) {
+		this.put(key.toString(), value);
+	}
+
+	/**
+	 * @param key
+	 *            the key to set
+	 * @param value
+	 *            the value to set
+	 */
 	public void addInfo(String key, Object value) {
 		this.put(key, value);
 	}
 
+	/*
+	 * (non-Javadoc)
+	 * 
+	 * @see java.lang.Comparable#compareTo(java.lang.Object)
+	 */
 	@Override
 	public int compareTo(AwsResource res) {
 		if (this.getResourceType() == res.getResourceType())
 			return this.getName().compareTo(res.getName());
 		else
 			return this.getResourceType().compareTo(res.getResourceType());
+	}
+
+	/**
+	 * @param key
+	 * @return
+	 */
+	public boolean containsKey(AwsTag key) {
+		return containsKey(key.toString());
 	}
 
 	/**
@@ -77,6 +106,14 @@ public class AwsResource extends TreeMap<String, Object> implements Comparable<A
 	}
 
 	/**
+	 * @param key
+	 * @return
+	 */
+	public Object get(AwsTag key) {
+		return this.get(key.toString());
+	}
+
+	/**
 	 * @return the accountId
 	 */
 	public String getAccountId() {
@@ -90,8 +127,8 @@ public class AwsResource extends TreeMap<String, Object> implements Comparable<A
 	 * @return the name of an EC2 based app
 	 */
 	public String getAppName() {
-		if ((resourceType == AwsResourceType.EC2) && this.containsKey("Name"))
-			return RemoveVersionNumber((String) this.get("Name"));
+		if ((resourceType == AwsResourceType.EC2) && this.containsKey(AwsTag.Name))
+			return RemoveVersionNumber((String) this.get(AwsTag.Name));
 		else
 			return null;
 	}
@@ -100,8 +137,8 @@ public class AwsResource extends TreeMap<String, Object> implements Comparable<A
 	 * @return the instance type of an EC2 based app
 	 */
 	public String getEC2InstanceType() {
-		if ((resourceType == AwsResourceType.EC2) && this.containsKey("InstanceType"))
-			return (String) this.get("InstanceType");
+		if ((resourceType == AwsResourceType.EC2) && this.containsKey(AwsTag.InstanceType))
+			return (String) this.get(AwsTag.InstanceType);
 		else
 			return null;
 	}
@@ -134,8 +171,8 @@ public class AwsResource extends TreeMap<String, Object> implements Comparable<A
 	 * @return the team
 	 */
 	public String getTeam() {
-		if (this.containsKey("Team"))
-			return (String) this.get("Team");
+		if (this.containsKey(AwsTag.Team))
+			return (String) this.get(AwsTag.Team);
 		else
 			return null;
 	}
@@ -150,7 +187,7 @@ public class AwsResource extends TreeMap<String, Object> implements Comparable<A
 		}
 
 		this.accountId = accountId;
-		this.put("AccountId", accountId);
+		this.addInfo(AwsTag.AccountId, accountId);
 	}
 
 	/**
@@ -163,7 +200,7 @@ public class AwsResource extends TreeMap<String, Object> implements Comparable<A
 		}
 
 		this.name = name;
-		this.put("Name", name);
+		this.addInfo(AwsTag.Name, name);
 	}
 
 	/**
@@ -172,7 +209,7 @@ public class AwsResource extends TreeMap<String, Object> implements Comparable<A
 	 */
 	public void setRegion(Regions region) {
 		this.region = region;
-		this.put("Region", region.getName());
+		this.addInfo(AwsTag.Region, region.getName());
 	}
 
 	/**
@@ -185,7 +222,7 @@ public class AwsResource extends TreeMap<String, Object> implements Comparable<A
 		}
 
 		this.resourceType = resourceType;
-		this.put("ResourceType", resourceType.name());
+		this.addInfo(AwsTag.ResourceType, resourceType.name());
 	}
 
 	/**
@@ -197,6 +234,6 @@ public class AwsResource extends TreeMap<String, Object> implements Comparable<A
 			team = "";
 		}
 
-		this.put("Team", team);
+		this.addInfo(AwsTag.Team, team);
 	}
 }

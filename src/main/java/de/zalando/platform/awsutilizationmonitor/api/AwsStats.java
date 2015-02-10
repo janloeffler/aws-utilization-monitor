@@ -355,6 +355,27 @@ public class AwsStats {
 		summary.setResourceTypes(getUsedResourceTypes().length);
 		summary.setTeams(getTeams().length);
 		summary.setApps(getApps().length);
+		summary.setEc2Instances(getResources(AwsResourceType.EC2).length);
+
+		long s3Objects = 0;
+		long s3DataSizeInBytes = 0;
+		long s3DataSizeInGb = 0;
+
+		for (AwsResource res : getResources(AwsResourceType.S3)) {
+			if (res.containsKey(AwsTag.Objects)) {
+				s3Objects += (long) res.get(AwsTag.Objects);
+			}
+
+			if (res.containsKey(AwsTag.SizeInBytes)) {
+				s3DataSizeInBytes += (long) res.get(AwsTag.Objects);
+			}
+		}
+
+		if (s3DataSizeInBytes > 0) {
+			s3DataSizeInGb = s3DataSizeInBytes / 1024 / 1024;
+		}
+		summary.setS3Objects(s3Objects);
+		summary.setS3DataSizeInGb(s3DataSizeInGb);
 
 		TreeMap<AwsResourceType, Integer> resourcesByType = new TreeMap<AwsResourceType, Integer>();
 		for (AwsResourceType resourceType : getUsedResourceTypes()) {

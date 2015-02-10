@@ -14,6 +14,8 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.amazonaws.regions.Regions;
 
+import de.zalando.platform.awsutilizationmonitor.api.view.StatsTable;
+
 @RestController
 final class AwsUtilizationMonitorController {
 	public static final Logger LOG = LoggerFactory.getLogger(AwsUtilizationMonitorController.class);
@@ -255,6 +257,7 @@ final class AwsUtilizationMonitorController {
 
 		AwsStats stats = collector.getStats();
 		StringBuilder s = new StringBuilder();
+		StatsTable t = new StatsTable();
 
 		AwsResource[] resources = stats.getResources();
 		String[] accounts = stats.getAccounts();
@@ -264,69 +267,88 @@ final class AwsUtilizationMonitorController {
 		String[] apps = stats.getApps();
 		String[] instanceTypes = stats.getUsedEC2InstanceTypes();
 		AwsResource[] ec2instances = stats.getResources(AwsResourceType.EC2);
+		AwsStatsSummary summary = stats.getSummary();
 
 		s.append("<html><header><style>p, li, ul, a { font-family:'Courier New', Arial; }</style></header><body><h1>AWS Utilization Statistics</h1><p>"
 				+ "<a href=/>Back to overview</a><ul>" + "<li><a href=/resources/>" + resources.length + "</a> resources used</li>");
 
 		/* regions */
 		s.append("<li><a href=/regions/>" + regions.length + "</a> regions</li>" + "<ul>");
+		t.clear();
 
 		for (Regions region : regions) {
 			int amount = stats.getResourcesByRegion(region).length;
-			s.append("<li><a href=/regions/" + region + "/>" + amount + "</a> resources in \"" + region + "\"</li>");
+			t.add(amount, "<li><a href=/regions/" + region + "/>" + amount + "</a> resources in \"" + region + "\"</li>");
 		}
 
+		s.append(t.printSorted());
 		s.append("</ul>");
 
 		/* resource types */
 		s.append("<li>" + resourceTypes.length + " AWS components used</li>" + "<ul>");
+		t.clear();
 
 		for (AwsResourceType resourceType : resourceTypes) {
 			int amount = stats.getResources(resourceType).length;
-			s.append("<li><a href=/types/" + resourceType + "/>" + amount + "</a> " + resourceType + "</li>");
+			String text = resourceType.toString();
+
+			if ((resourceType == AwsResourceType.EC2) && (summary.getS3Objects() > 0)) {
+				text = resourceType.toString() + "(data size: " + summary.getS3DataSizeInGb() + " GB, objects: " + summary.getS3Objects() + ")";
+			}
+
+			t.add(amount, "<li><a href=/types/" + resourceType + "/>" + amount + "</a> " + text + "</li>");
 		}
 
+		s.append(t.printSorted());
 		s.append("</ul>");
 
 		/* accounts */
 		s.append("<li><a href=/accounts/>" + accounts.length + "</a> accounts</li>" + "<ul>");
+		t.clear();
 
 		for (String accountName : accounts) {
 			int amount = stats.getResourcesByAccount(accountName).length;
-			s.append("<li><a href=/accounts/" + accountName + "/>" + amount + "</a> resources by \"" + accountName + "\"</li>");
+			t.add(amount, "<li><a href=/accounts/" + accountName + "/>" + amount + "</a> resources by \"" + accountName + "\"</li>");
 		}
 
+		s.append(t.printSorted());
 		s.append("</ul>");
 
 		/* teams */
 		s.append("<li><a href=/keys/Team/>" + teams.length + "</a> teams</li>" + "<ul>");
+		t.clear();
 
 		for (String teamName : teams) {
 			int amount = stats.searchResources("Team", teamName).length;
-			s.append("<li><a href=/values/Team/" + encodeParam(teamName) + "/>" + amount + "</a> resources by \"" + teamName + "\"</li>");
+			t.add(amount, "<li><a href=/values/Team/" + encodeParam(teamName) + "/>" + amount + "</a> resources by \"" + teamName + "\"</li>");
 		}
 
+		s.append(t.printSorted());
 		s.append("</ul>");
 
 		/* EC2 apps */
 		s.append("<li><a href=/apps/>" + apps.length + "</a> EC2 based apps</li>" + "<ul>");
+		t.clear();
 
 		for (String appName : apps) {
 			int amount = stats.getAppInstances(appName).length;
-			s.append("<li><a href=/apps/" + encodeParam(appName) + "/>" + amount + "</a> instances of \"" + appName + "\"</li>");
+			t.add(amount, "<li><a href=/apps/" + encodeParam(appName) + "/>" + amount + "</a> instances of \"" + appName + "\"</li>");
 		}
 
+		s.append(t.printSorted());
 		s.append("</ul>");
 
 		/* EC2 instance types */
 		s.append("<li><a href=/instancetypes/>" + instanceTypes.length + "</a> used EC2 instance types by <a href=/types/EC2/>" + ec2instances.length
 				+ "</a> EC2 instances</li>" + "<ul>");
+		t.clear();
 
 		for (String instanceType : instanceTypes) {
 			int amount = stats.getResourcesByEC2InstanceType(instanceType).length;
-			s.append("<li><a href=/instancetypes/" + encodeParam(instanceType) + "/>" + amount + "</a> instances with \"" + instanceType + "\"</li>");
+			t.add(amount, "<li><a href=/instancetypes/" + encodeParam(instanceType) + "/>" + amount + "</a> instances with \"" + instanceType + "\"</li>");
 		}
 
+		s.append(t.printSorted());
 		s.append("</ul>");
 
 		s.append("</ul></p></body></html>");

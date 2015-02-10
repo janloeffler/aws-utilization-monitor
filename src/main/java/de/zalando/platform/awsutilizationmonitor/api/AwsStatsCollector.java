@@ -112,6 +112,10 @@ public final class AwsStatsCollector {
 	private static DateTime lastCollectTime = DateTime.now();
 
 	public static final Logger LOG = LoggerFactory.getLogger(AwsStatsCollector.class);
+	private static final long PROGRESS_TICK = 30000;
+
+	@Value("${connection.components.s3.details:true}")
+	private static boolean s3Details = true;
 
 	/**
 	 * Collect data for CloudFront.
@@ -640,12 +644,15 @@ public final class AwsStatsCollector {
 			System.setProperty(SDKGlobalConfiguration.ENABLE_S3_SIGV4_SYSTEM_PROPERTY, "true");
 
 			AmazonS3 s3 = new AmazonS3Client(credentials);
-			// s3.setRegion(Region.getRegion(region));
+			s3.setRegion(Region.getRegion(region));
 
 			List<Bucket> buckets = s3.listBuckets();
 
+			// track time because of long running task
+			DateTime startTime = DateTime.now();
+			DateTime lastHeartBeat = DateTime.now();
 			long totalSize = 0;
-			int totalItems = 0;
+			long totalItems = 0;
 			for (Bucket bucket : buckets) {
 				/*
 				 * In order to save bandwidth, an S3 object listing does not
@@ -654,23 +661,39 @@ public final class AwsStatsCollector {
 				 * obtained with the AmazonS3Client.listNextBatchOfObjects()
 				 * method.
 				 */
-				ObjectListing objects = s3.listObjects(bucket.getName());
 				long size = 0;
 				long items = 0;
-				do {
-					for (S3ObjectSummary objectSummary : objects.getObjectSummaries()) {
-						size += objectSummary.getSize();
-						items++;
-					}
-					objects = s3.listNextBatchOfObjects(objects);
-				} while (objects.isTruncated());
+				if (s3Details) {
+					ObjectListing objects = s3.listObjects(bucket.getName());
+					do {
+						for (S3ObjectSummary objectSummary : objects.getObjectSummaries()) {
+							size += objectSummary.getSize();
+							items++;
 
-				totalItems += items;
-				totalSize += size;
-				AwsResource res = new AwsResource(bucket.getName(), accountId, AwsResourceType.S3, region);
+							if ((DateTime.now().getMillis() - lastHeartBeat.getMillis()) > PROGRESS_TICK) {
+								lastHeartBeat = DateTime.now();
+								DateTime duration = DateTime.now().minus(startTime.getMillis());
+								LOG.info("     still crawling S3 since " + duration.getMillis() / 1000 + " sec: current bucket: " + bucket.getName());
+							}
+						}
+						objects = s3.listNextBatchOfObjects(objects);
+					} while (objects.isTruncated());
+
+					totalItems += items;
+					totalSize += size;
+				}
+
+				// get region of bucket
+				Regions bucketRegion = region;
+				try {
+					bucketRegion = Regions.fromName(s3.getBucketLocation(bucket.getName()));
+				} catch (Exception e) {
+				}
+
+				AwsResource res = new AwsResource(bucket.getName(), accountId, AwsResourceType.S3, bucketRegion);
 				res.addInfo("Owner", bucket.getOwner().getDisplayName());
-				res.addInfo("SizeInBytes", size);
-				res.addInfo("Objects", items);
+				res.addInfo(AwsTag.SizeInBytes, size);
+				res.addInfo(AwsTag.Objects, items);
 				stats.add(res);
 			}
 
@@ -824,6 +847,9 @@ public final class AwsStatsCollector {
 	@Value("${connection.cache.duration:3600000}")
 	private int cacheDuration;
 
+	@Value("${connection.components.ignore}")
+	private String[] ignoredComponents;
+
 	private AwsStats stats = null;
 
 	@Value("${connection.regions:EU_WEST_1, EU_CENTRAL_1}")
@@ -855,91 +881,70 @@ public final class AwsStatsCollector {
 		LOG.info("Login to AWS and collect resource list");
 		LOG.info("----------------------------------------------------------------------");
 
-		DateTime startTime = DateTime.now();
 		ArrayList<Thread> threads = new ArrayList<Thread>();
-		AWSCredentials credentials = null;
-		String accountId = "";
+		DateTime startTime = DateTime.now();
 		lastCollectTime = DateTime.now();
 
-		try {
-			/*
-			 * The ProfileCredentialsProvider will return your [default]
-			 * credential profile by reading from the credentials file located
-			 * at (~/.aws/credentials).
-			 */
-			try {
-				credentials = new ProfileCredentialsProvider().getCredentials();
-			} catch (Exception e) {
-				throw new AmazonClientException("Cannot load the credentials from the credential profiles file. "
-						+ "Please make sure that your credentials file is at the correct " + "location (~/.aws/credentials), and is in valid format.", e);
+		/*
+		 * Configuration
+		 */
+		LOG.info("Supported regions: " + Arrays.toString(supportedRegions));
+		ArrayList<Regions> regions = new ArrayList<Regions>();
+		for (String s : supportedRegions) {
+			regions.add(Regions.valueOf(s));
+		}
+
+		LOG.info("Ignored recources: " + Arrays.toString(ignoredComponents));
+		ArrayList<AwsResourceType> resourceTypes = new ArrayList<AwsResourceType>();
+		String ignore = Arrays.toString(ignoredComponents).toLowerCase();
+		for (AwsResourceType resourceType : AwsResourceType.values()) {
+
+			// exclude S3 and scan it afterwards separately
+			if ((resourceType != AwsResourceType.Unknown) && (resourceType != AwsResourceType.S3) && !ignore.contains(resourceType.toString().toLowerCase())) {
+				resourceTypes.add(resourceType);
 			}
+		}
 
-			LOG.info("Supported regions: " + Arrays.toString(supportedRegions));
-			ArrayList<Regions> regions = new ArrayList<Regions>();
-			for (String s : supportedRegions) {
-				regions.add(Regions.valueOf(s));
-			}
+		LOG.info("Scan S3 bucket details: " + s3Details);
 
+		ArrayList<AWSCredentials> credentialList = getCredentials();
+
+		for (AWSCredentials credentials : credentialList) {
 			try {
-				AmazonIdentityManagementClient iamClient = new AmazonIdentityManagementClient(credentials);
-				LOG.info("Current AWS user: " + iamClient.getUser().getUser().getUserId());
-				accountId = iamClient.getUser().getUser().getArn();
-			} catch (AmazonServiceException e) {
-				LOG.info("Cannot lookup account id: " + e.getMessage());
-				if (e.getErrorCode().compareTo("AccessDenied") == 0) {
-					String arn = null;
-					String msg = e.getMessage();
-					// User:
-					// arn:aws:iam::123456789012:user/division_abc/subdivision_xyz/Bob
-					// is not authorized to perform: iam:GetUser on resource:
-					// arn:aws:iam::123456789012:user/division_abc/subdivision_xyz/Bob
-					// arn:aws:sts::123456789012:assumed-role/Shibboleth-PowerUser/username
-					int arnIdx = msg.indexOf("arn:aws");
-					if (arnIdx != -1) {
-						int arnSpace = msg.indexOf(" ", arnIdx);
-						arn = msg.substring(arnIdx, arnSpace);
+				String accountId = parseAccountId(credentials);
+				LOG.info("Current AWS account ID: " + accountId);
 
-						// Remove "arn:aws:sts::"
-						arn = arn.substring(13, 13 + 12);
+				/*
+				 * scan S3 only once
+				 */
+				AwsCollectorThread thread = new AwsCollectorThread(currentStats, credentials, accountId, Regions.EU_WEST_1, AwsResourceType.S3);
+				threads.add(thread);
+				thread.start();
+
+				/*
+				 * scan each resource type in each region
+				 */
+				for (Regions region : regions) {
+					for (AwsResourceType resourceType : resourceTypes) {
+						thread = new AwsCollectorThread(currentStats, credentials, accountId, region, resourceType);
+						threads.add(thread);
+						thread.start();
 					}
-					accountId = arn;
 				}
 			} catch (Exception ex) {
-				LOG.error("Cannot lookup account id: " + ex.getMessage());
+				LOG.error("Connect to AWS failed: " + ex.getMessage());
 			}
+		}
 
-			LOG.info("Current AWS account ID: " + accountId);
-
-			ArrayList<AwsResourceType> resourceTypes = new ArrayList<AwsResourceType>();
-			for (AwsResourceType resourceType : AwsResourceType.values()) {
-
-				// exclude S3 and scan it afterwards separately
-				if ((resourceType != AwsResourceType.Unknown) && (resourceType != AwsResourceType.S3)) {
-					resourceTypes.add(resourceType);
-				}
-			}
-
-			// scan S3 only once
-			AwsCollectorThread thread = new AwsCollectorThread(currentStats, credentials, accountId, Regions.DEFAULT_REGION, AwsResourceType.S3);
-			threads.add(thread);
-			thread.start();
-
-			// scan each resource type in each region
-			for (Regions region : regions) {
-				for (AwsResourceType resourceType : resourceTypes) {
-					thread = new AwsCollectorThread(currentStats, credentials, accountId, region, resourceType);
-					threads.add(thread);
-					thread.start();
-				}
-			}
-
-			// wait for all collection threads to be finished
+		/*
+		 * wait for all collection threads to be finished
+		 */
+		try {
 			for (Thread t : threads) {
 				t.join();
 			}
-
-		} catch (Exception ex) {
-			LOG.error("Connect to AWS failed: " + ex.getMessage());
+		} catch (Exception e) {
+			LOG.error("Thread error: " + e.getMessage());
 		}
 
 		this.stats = currentStats;
@@ -967,7 +972,29 @@ public final class AwsStatsCollector {
 	 *            amount of items that should be created
 	 */
 	public void generateSampleData(int maxItems) {
+		if (stats == null) {
+			stats = new AwsStats();
+		}
+
 		stats.generateSampleData(maxItems);
+	}
+
+	private ArrayList<AWSCredentials> getCredentials() {
+		ArrayList<AWSCredentials> credentialList = new ArrayList<AWSCredentials>();
+
+		/*
+		 * The ProfileCredentialsProvider will return your [default] credential
+		 * profile by reading from the credentials file located at
+		 * (~/.aws/credentials).
+		 */
+		try {
+			credentialList.add(new ProfileCredentialsProvider().getCredentials());
+		} catch (Exception e) {
+			throw new AmazonClientException("Cannot load the credentials from the credential profiles file. "
+					+ "Please make sure that your credentials file is at the correct " + "location (~/.aws/credentials), and is in valid format.", e);
+		}
+
+		return credentialList;
 	}
 
 	/**
@@ -979,5 +1006,49 @@ public final class AwsStatsCollector {
 		}
 
 		return stats;
+	}
+
+	/**
+	 * Read AWS account ID
+	 *
+	 * @param credentials
+	 * @return
+	 */
+	private String parseAccountId(AWSCredentials credentials) {
+		String accountId = "";
+
+		try {
+			AmazonIdentityManagementClient iamClient = new AmazonIdentityManagementClient(credentials);
+			LOG.info("Current AWS user: " + iamClient.getUser().getUser().getUserId());
+			accountId = iamClient.getUser().getUser().getArn();
+		} catch (AmazonServiceException e) {
+			if (e.getErrorCode().compareTo("AccessDenied") == 0) {
+				String arn = null;
+				String msg = e.getMessage();
+				// User:
+				// arn:aws:iam::123456789012:user/division_abc/subdivision_xyz/Bob
+				// is not authorized to perform: iam:GetUser on
+				// resource:
+				// arn:aws:iam::123456789012:user/division_abc/subdivision_xyz/Bob
+				// arn:aws:sts::123456789012:assumed-role/Shibboleth-PowerUser/username
+				int arnIdx = msg.indexOf("arn:aws");
+				if (arnIdx != -1) {
+					int arnSpace = msg.indexOf(" ", arnIdx);
+					arn = msg.substring(arnIdx, arnSpace);
+
+					// Remove "arn:aws:sts::"
+					arn = arn.substring(13, 13 + 12);
+				}
+				accountId = arn;
+			}
+
+			if (accountId.length() == 0) {
+				LOG.warn("Cannot lookup account id: " + e.getMessage());
+			}
+		} catch (Exception ex) {
+			LOG.error("Cannot lookup account id: " + ex.getMessage());
+		}
+
+		return accountId;
 	}
 }
