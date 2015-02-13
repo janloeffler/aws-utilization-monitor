@@ -396,7 +396,7 @@ public class AwsStats {
 		}
 
 		if (s3DataSizeInBytes > 0) {
-			s3DataSizeInGb = s3DataSizeInBytes / 1024 / 1024;
+			s3DataSizeInGb = s3DataSizeInBytes / (1024 * 1024 * 1024);
 		}
 		summary.setS3Objects(s3Objects);
 		summary.setS3DataSizeInGb(s3DataSizeInGb);
