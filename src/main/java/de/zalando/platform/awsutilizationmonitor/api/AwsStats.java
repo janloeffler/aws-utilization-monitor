@@ -162,6 +162,30 @@ public class AwsStats {
 	}
 
 	/**
+	 * Returns all app names sorted alphabetically that are externally reachable
+	 * via public dns name.
+	 *
+	 * @return sorted list of all app names that are externally reachable via
+	 *         public dns name.
+	 */
+	public String[] getPublicApps() {
+		AwsResource[] list = getResources(AwsResourceType.EC2);
+		ArrayList<String> results = new ArrayList<String>();
+
+		for (AwsResource res : list) {
+			String appName = res.getAppName();
+			if ((appName != null) && (appName.length() > 0) && !results.contains(appName) && res.containsKey(AwsTag.PublicDnsName)
+					&& (res.get(AwsTag.PublicDnsName) != null) && (res.get(AwsTag.PublicDnsName).toString().length() > 0)) {
+				results.add(appName);
+			}
+		}
+
+		results.sort(null);
+
+		return results.toArray(new String[results.size()]);
+	}
+
+	/**
 	 * Returns all regions sorted alphabetically.
 	 *
 	 * @return sorted list of all regions.
@@ -367,7 +391,7 @@ public class AwsStats {
 			}
 
 			if (res.containsKey(AwsTag.SizeInBytes)) {
-				s3DataSizeInBytes += (long) res.get(AwsTag.Objects);
+				s3DataSizeInBytes += (long) res.get(AwsTag.SizeInBytes);
 			}
 		}
 

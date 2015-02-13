@@ -8,7 +8,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -35,9 +37,20 @@ final class AwsUtilizationMonitorController {
 		return collector.getStats().getAccounts();
 	}
 
+	@RequestMapping(value = "/accounts/", method = RequestMethod.PUT)
+	@ResponseBody
+	void accounts(@RequestBody AwsAccount[] accounts) {
+		LOG.info("called PUT /accounts/");
+
+		collector.setAccounts(accounts);
+
+		LOG.info("added " + accounts.length + " accounts");
+	}
+
 	@RequestMapping("/accounts/{accountName}/")
 	@ResponseBody
 	AwsResource[] accounts(@PathVariable String accountName) {
+		accountName = decodeParam(accountName);
 		LOG.info("called /accounts/" + accountName + "/");
 
 		AwsResource[] results = collector.getStats().getResourcesByAccount(accountName);
@@ -92,6 +105,28 @@ final class AwsUtilizationMonitorController {
 		return param;
 	}
 
+	// @RequestMapping("/credentials/")
+	// @ResponseBody
+	// AwsAccount[] credentials() {
+	// LOG.info("called /credentials/");
+	//
+	// ArrayList<AwsAccount> accounts = new ArrayList<AwsAccount>();
+	// accounts.add(new AwsAccount(
+	// "123456789012 (account-name1)",
+	// "ASIAI345ZKOMUQ76JZ2A",
+	// "LVxrdHkDGZKU566VuTQxFvc1gJOSHdSN095H2xim",
+	// "AQoDYXd45645645SV4ZYUGeo5uF5FQYsCcgOUBTIGe8blGuCGfLfmk51k3Ij3aSu6dIBQ2poLEm1SkcRD7S7MPdqrZSEnD1+4N8XRuZvyT9Z29DO5ZcAw0cVoBJWyGx+U68cywsfZLN3SqRkr+NvT5Xlg+ashwHPs/q4r4QoqjOOJ9M+y7leY4RmGNDfbTbRDgUY2tSttS9/fGS0KvprUPC4gOi6WwehrWcbw8NBfFUTtfP+G4YPnZB/ZJ0Jmc1IkbyIxLkzyZUysvhhAnmJffrrMCIPmF+GUyaTVsLLJ3Gwhy5tNNNEd7beH76t1G0euHKRkX6/ewqClITzE7wQtkpKDZYgLbHfCR4gfjfsH3+6KyP1XWZ46gbSrzTevG453ggTGWuuFAExMRNE2y1RJD46+twriMZRKuwi8mjGc554rz4Z5M4MKEGErv0qKf7jnrGVjIAtDYX30oyrNPb8eAMGDCHs/Fe5bfR4bSDr6PSmBQ=="));
+	// accounts.add(new AwsAccount("100000000000 (account-name2)",
+	// "bla", "blub", "SESSION"));
+	// accounts.add(new AwsAccount(
+	// "999999999999 (account-name3)",
+	// "ASIAI345ZKOMUQ76JZ2A",
+	// "LVxrdHkDGZKU566VuTQxFvc1gJOSHdSN095H2xim",
+	// "AQoDYXdzELD//////////wEa8AK2ZsPsLEh1pZKAVKk7oMWSV4ZYUGeo5uF5FQYsCcgOUBT235235blGuCGfLfmk51k3Ij3aSu6dIBQ2poLEm1SkcRD7S7MPdqrZSEnD1+4N8XRuZvyT9Z29DO5ZcAw0cVoBJWyGx+U68cywsfZLN3SqRkr+NvT5Xlg+ashwHPs/q4r4QoqjOOJ9M+y7leY4RmGNDfbTbRDgUY2tSttS9/fGS0KvprUPC4gOi6WwehrWcbw8NBfFUTtfP+G4YPnZB/ZJ0Jmc1IkbyIxLkzyZUysvhhAnmJffrrMCIPmF+GUyaTVsLLJ3Gwhy5tNNNEd7beH76t1G0euHKRkX6/ewqClITzE7wQtkpKDZYgLbHfCR4gfjfsH3+6KyP1XWZ46gbSrzTevG453ggTGWuuFAExMRNE2y1RJD46+twriMZRKuwi8mjGc554rz4Z5M4MKEGErv0qKf7jnrGVjIAtDYX30oyrNPb8eAMGDCHs/Fe5bfR4bSDr6PSmBQ=="));
+	//
+	// return accounts.toArray(new AwsAccount[accounts.size()]);
+	// }
+
 	String encodeParam(String param) {
 		try {
 			// UrlEscapers.urlPathSegmentEscaper().escape(s1)
@@ -111,7 +146,7 @@ final class AwsUtilizationMonitorController {
 		return collector.forceAddStats();
 	}
 
-	@RequestMapping("/health/")
+	@RequestMapping("/health")
 	@ResponseBody
 	String health() {
 		return "OK";
@@ -123,27 +158,31 @@ final class AwsUtilizationMonitorController {
 		LOG.info("called /");
 
 		return "<html><header><style>p, li, ul, a { font-family:'Courier New', Arial; }</style></header><body><h1>AWS Utilization Statistics</h1><p><ul>"
-		+ "<li><a href=/apps/>/apps/</a> List EC2 based apps</li>"
-		+ "<li><a href=/apps/app_1/>/apps/{app_name}/</a> Show EC2 based apps with name \"app_1\"</li>"
-		+ "<li><a href=/instancetypes/>/instancetypes/</a> List used EC2 instance types</li>"
-		+ "<li><a href=/instancetypes/"
-		+ encodeParam("t2.micro")
-		+ "/>/instancetypes/{instance_type}/</a> Show EC2 based apps with instance type \"t2.micro\"</li>"
-		+ "<li><a href=/resources/>/resources/</a> List resources</li>"
-		+ "<li><a href=/resources/app_1/>/resources/{resource_name}/</a> Show resources with name \"app_1\"</li>"
-		+ "<li><a href=/keys/>/keys/</a> List keys</li>"
-		+ "<li><a href=/keys/PublicDnsName/>/keys/{key_name}/</a> Show resources that contain a value with the key \"PublicDnsName\"</li>"
-		+ "<li><a href=/keys/Team/>/keys/Team/</a> List team names if \"team\" tag was specified</li>"
-		+ "<li><a href=/accounts/>/accounts/</a> List accounts</li>"
-		+ "<li><a href=/accounts/123456789012/>/accounts/{account_name}/</a> Show resources used by account with name \"123456789012\"</li>"
-		+ "<li><a href=/regions/>/regions/</a> List regions</li>"
-		+ "<li><a href=/regions/EU_WEST_1/>/regions/{region_name}/</a> Show resources used by region with name \"EU_WEST_1\"</li>"
-		+ "<li><a href=/search/banana/>/search/{search_pattern}/</a> Show app with name \"banana\"</li>"
-		+ "<li><a href=/values/Team/Platform/>/values/{key_name}/{value_pattern}/</a> Show resources that contain a value with the key \"Team\" and the pattern \"Platform\"</li>"
-		+ "<li><a href=/statistics/>/statistics/</a> Show statistics about resource usage</li>"
-		+ "<li><a href=/summary/>/summary/</a> Show summary KPIs only about resource usage</li>"
-		+ "<li><a href=/test/>/test/</a> Generate test data</li>" + "<li><a href=/test/30>/test/{maxItems}</a> Generate test data with 30 items</li>"
-		+ "<li><a href=/clear/>/clear/</a> Clear data cache</li>" + "<li><a href=/health/>/health/</a> Show health</li>" + "</ul></p></body></html>";
+				+ "<li><a href=/accounts/>/accounts/</a> List accounts</li>"
+				+ "<li><a href=/accounts/123456789012/>/accounts/{account_name}/</a> Show resources used by account with name \"123456789012\"</li>"
+				+ "<li><a href=/apps/>/apps/</a> List EC2 based apps</li>"
+				+ "<li><a href=/apps/NAT/>/apps/{app_name}/</a> Show EC2 based apps with name \"NAT\"</li>"
+				+ "<li><a href=/clear/>/clear/</a> Clear data cache</li>"
+				+ "<li><a href=/health/>/health/</a> Show health</li>"
+				+ "<li><a href=/instancetypes/>/instancetypes/</a> List used EC2 instance types</li>"
+				+ "<li><a href=/instancetypes/"
+				+ encodeParam("t2.micro")
+				+ "/>/instancetypes/{instance_type}/</a> Show EC2 based apps with instance type \"t2.micro\"</li>"
+				+ "<li><a href=/keys/>/keys/</a> List keys</li>"
+				+ "<li><a href=/keys/PublicDnsName/>/keys/{key_name}/</a> Show resources that contain a value with the key \"PublicDnsName\"</li>"
+				+ "<li><a href=/regions/>/regions/</a> List regions</li>"
+				+ "<li><a href=/regions/EU_WEST_1/>/regions/{region_name}/</a> Show resources used by region with name \"EU_WEST_1\"</li>"
+				+ "<li><a href=/resources/>/resources/</a> List resources</li>"
+				+ "<li><a href=/resources/NAT/>/resources/{resource_name}/</a> Show resources with name \"NAT\"</li>"
+				+ "<li><a href=/search/banana/>/search/{search_pattern}/</a> Show app with name \"banana\"</li>"
+				+ "<li><a href=/statistics/>/statistics/</a> Show statistics about resource usage</li>"
+				+ "<li><a href=/summary/>/summary/</a> Show summary KPIs only about resource usage</li>"
+				+ "<li><a href=/teams/>/teams/</a> List team names if \"team\" tag was specified</li>"
+				+ "<li><a href=/teams/Platform/>/teams/{team_name}/</a> Show resources of team \"Platform\"</li>"
+				+ "<li><a href=/test/>/test/</a> Generate test data</li>"
+				+ "<li><a href=/test/30>/test/{maxItems}</a> Generate test data with 30 items</li>"
+				+ "<li><a href=/values/Team/Platform/>/values/{key_name}/{value_pattern}/</a> Show resources that contain a value with the key \"Team\" and the pattern \"Platform\"</li>"
+				+ "</ul></p></body></html>";
 	}
 
 	@RequestMapping("/instancetypes/")
@@ -189,6 +228,16 @@ final class AwsUtilizationMonitorController {
 		}
 
 		return results;
+	}
+
+	@RequestMapping("/logout/")
+	@ResponseBody
+	void logout() {
+		LOG.info("called /logout/");
+
+		collector.setAccounts(new AwsAccount[0]);
+
+		LOG.info("cleared accounts");
 	}
 
 	@RequestMapping("/regions/")
@@ -265,15 +314,18 @@ final class AwsUtilizationMonitorController {
 		AwsResourceType[] resourceTypes = stats.getUsedResourceTypes();
 		String[] teams = stats.getTeams();
 		String[] apps = stats.getApps();
+		String[] publicApps = stats.getPublicApps();
 		String[] instanceTypes = stats.getUsedEC2InstanceTypes();
 		AwsResource[] ec2instances = stats.getResources(AwsResourceType.EC2);
 		AwsStatsSummary summary = stats.getSummary();
 
 		s.append("<html><header><style>p, li, ul, a { font-family:'Courier New', Arial; }</style></header><body><h1>AWS Utilization Statistics</h1><p>"
-				+ "<a href=/>Back to overview</a><ul>" + "<li><a href=/resources/>" + resources.length + "</a> resources used</li>");
+				+ "<a href=/>Back to overview</a><ul><li><a href=/resources/>" + resources.length + "</a> resources used</li>");
 
-		/* regions */
-		s.append("<li><a href=/regions/>" + regions.length + "</a> regions</li>" + "<ul>");
+		/*
+		 * regions
+		 */
+		s.append("<li><a href=/regions/>" + regions.length + "</a> regions</li><ul>");
 		t.clear();
 
 		for (Regions region : regions) {
@@ -284,15 +336,17 @@ final class AwsUtilizationMonitorController {
 		s.append(t.printSorted());
 		s.append("</ul>");
 
-		/* resource types */
-		s.append("<li>" + resourceTypes.length + " AWS components used</li>" + "<ul>");
+		/*
+		 * resource types
+		 */
+		s.append("<li>" + resourceTypes.length + " AWS components used</li><ul>");
 		t.clear();
 
 		for (AwsResourceType resourceType : resourceTypes) {
 			int amount = stats.getResources(resourceType).length;
 			String text = resourceType.toString();
 
-			if ((resourceType == AwsResourceType.EC2) && (summary.getS3Objects() > 0)) {
+			if ((resourceType == AwsResourceType.S3) && (summary.getS3Objects() > 0)) {
 				text = resourceType.toString() + "(data size: " + summary.getS3DataSizeInGb() + " GB, objects: " + summary.getS3Objects() + ")";
 			}
 
@@ -302,20 +356,24 @@ final class AwsUtilizationMonitorController {
 		s.append(t.printSorted());
 		s.append("</ul>");
 
-		/* accounts */
-		s.append("<li><a href=/accounts/>" + accounts.length + "</a> accounts</li>" + "<ul>");
+		/*
+		 * accounts
+		 */
+		s.append("<li><a href=/accounts/>" + accounts.length + "</a> accounts</li><ul>");
 		t.clear();
 
 		for (String accountName : accounts) {
 			int amount = stats.getResourcesByAccount(accountName).length;
-			t.add(amount, "<li><a href=/accounts/" + accountName + "/>" + amount + "</a> resources by \"" + accountName + "\"</li>");
+			t.add(amount, "<li><a href=/accounts/" + encodeParam(accountName) + "/>" + amount + "</a> resources by \"" + accountName + "\"</li>");
 		}
 
 		s.append(t.printSorted());
 		s.append("</ul>");
 
-		/* teams */
-		s.append("<li><a href=/keys/Team/>" + teams.length + "</a> teams</li>" + "<ul>");
+		/*
+		 * teams
+		 */
+		s.append("<li><a href=/keys/Team/>" + teams.length + "</a> teams</li><ul>");
 		t.clear();
 
 		for (String teamName : teams) {
@@ -326,8 +384,11 @@ final class AwsUtilizationMonitorController {
 		s.append(t.printSorted());
 		s.append("</ul>");
 
-		/* EC2 apps */
-		s.append("<li><a href=/apps/>" + apps.length + "</a> EC2 based apps</li>" + "<ul>");
+		/*
+		 * EC2 apps
+		 */
+		s.append("<li><a href=/apps/>" + apps.length + "</a> EC2 based apps using <a href=/types/EC2/>" + ec2instances.length + "</a> EC2 instances</li>"
+				+ "<ul>");
 		t.clear();
 
 		for (String appName : apps) {
@@ -338,9 +399,25 @@ final class AwsUtilizationMonitorController {
 		s.append(t.printSorted());
 		s.append("</ul>");
 
-		/* EC2 instance types */
+		/*
+		 * Apps that are externally reachable
+		 */
+		s.append("<li><a href=/keys/PublicDnsName/>" + publicApps.length + "</a> EC2 based apps are externally reachable (public dns name)</li>" + "<ul>");
+		t.clear();
+
+		for (String appName : publicApps) {
+			int amount = stats.getAppInstances(appName).length;
+			t.add(amount, "<li><a href=/apps/" + encodeParam(appName) + "/>" + amount + "</a> instances of \"" + appName + "\"</li>");
+		}
+
+		s.append(t.printSorted());
+		s.append("</ul>");
+
+		/*
+		 * EC2 instance types
+		 */
 		s.append("<li><a href=/instancetypes/>" + instanceTypes.length + "</a> used EC2 instance types by <a href=/types/EC2/>" + ec2instances.length
-				+ "</a> EC2 instances</li>" + "<ul>");
+				+ "</a> EC2 instances</li><ul>");
 		t.clear();
 
 		for (String instanceType : instanceTypes) {
@@ -362,6 +439,29 @@ final class AwsUtilizationMonitorController {
 		LOG.info("called /summary/");
 
 		return collector.getStats().getSummary();
+	}
+
+	@RequestMapping("/teams/")
+	@ResponseBody
+	String[] teams() {
+		LOG.info("called /teams/");
+
+		return collector.getStats().getTeams();
+	}
+
+	@RequestMapping("/teams/{teamName}/")
+	@ResponseBody
+	AwsResource[] teams(@PathVariable String teamName) {
+		teamName = decodeParam(teamName);
+		LOG.info("called /teams/" + teamName + "/");
+
+		AwsResource[] results = collector.getStats().getResourcesByTeam(teamName);
+
+		if ((results == null) || (results.length == 0)) {
+			LOG.info("No resource found for team \"" + teamName + "\"!");
+		}
+
+		return results;
 	}
 
 	@RequestMapping("/test/")

@@ -15,6 +15,7 @@ public class AwsResource extends TreeMap<String, Object> implements Comparable<A
 	 */
 	public static String RemoveVersionNumber(String appName) {
 		appName = appName.replace("SNAPSHOT", "").replace("snapshot", "");
+		appName = appName.replace("-instance", "");
 
 		// app-zalanda-0.14 -> app-zalanda
 		String removeChars = "0123456789-._ ";
@@ -70,7 +71,7 @@ public class AwsResource extends TreeMap<String, Object> implements Comparable<A
 
 	/*
 	 * (non-Javadoc)
-	 * 
+	 *
 	 * @see java.lang.Comparable#compareTo(java.lang.Object)
 	 */
 	@Override

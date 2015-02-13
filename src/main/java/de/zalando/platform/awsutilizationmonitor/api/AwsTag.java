@@ -8,5 +8,5 @@ package de.zalando.platform.awsutilizationmonitor.api;
  *
  */
 public enum AwsTag {
-	AccountId, InstanceType, Name, Objects, Region, ResourceType, SizeInBytes, Team
+	AccountId, Arn, AvailabilityZone, DBName, InstanceType, Items, LaunchTime, Name, Objects, Owner, OwnerId, PrivateDnsName, PrivateIpAddress, PublicDnsName, PublicIpAddress, Region, ResourceType, SizeInBytes, State, Team
 }
