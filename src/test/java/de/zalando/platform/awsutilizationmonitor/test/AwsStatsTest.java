@@ -10,9 +10,9 @@ import org.junit.Test;
 
 import com.amazonaws.regions.Regions;
 
-import de.zalando.platform.awsutilizationmonitor.api.AwsResource;
-import de.zalando.platform.awsutilizationmonitor.api.AwsResourceType;
-import de.zalando.platform.awsutilizationmonitor.api.AwsStats;
+import de.zalando.platform.awsutilizationmonitor.stats.AwsResource;
+import de.zalando.platform.awsutilizationmonitor.stats.AwsResourceType;
+import de.zalando.platform.awsutilizationmonitor.stats.AwsStats;
 
 /**
  * @author jloeffler

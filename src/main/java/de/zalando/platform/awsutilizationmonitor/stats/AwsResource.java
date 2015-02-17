@@ -1,4 +1,4 @@
-package de.zalando.platform.awsutilizationmonitor.api;
+package de.zalando.platform.awsutilizationmonitor.stats;
 
 import java.util.TreeMap;
 
@@ -71,7 +71,7 @@ public class AwsResource extends TreeMap<String, Object> implements Comparable<A
 
 	/*
 	 * (non-Javadoc)
-	 *
+	 * 
 	 * @see java.lang.Comparable#compareTo(java.lang.Object)
 	 */
 	@Override
@@ -122,6 +122,16 @@ public class AwsResource extends TreeMap<String, Object> implements Comparable<A
 			return "";
 		else
 			return accountId;
+	}
+
+	/**
+	 * @return the AMI of an EC2 based app
+	 */
+	public String getAMI() {
+		if ((resourceType == AwsResourceType.EC2) && this.containsKey(AwsTag.AMI))
+			return (String) this.get(AwsTag.AMI);
+		else
+			return null;
 	}
 
 	/**

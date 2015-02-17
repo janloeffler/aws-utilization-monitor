@@ -1,8 +1,9 @@
 /**
  *
  */
-package de.zalando.platform.awsutilizationmonitor.api;
+package de.zalando.platform.awsutilizationmonitor.stats;
 
+import java.text.DecimalFormat;
 import java.util.TreeMap;
 
 /**
@@ -10,16 +11,33 @@ import java.util.TreeMap;
  *
  */
 public class AwsStatsSummary {
+	public static String readableFileSize(long size) {
+		if (size <= 0)
+			return "0";
+		final String[] units = new String[] { "B", "kB", "MB", "GB", "TB" };
+		int digitGroups = (int) (Math.log10(size) / Math.log10(1024));
+		return new DecimalFormat("#,##0.#").format(size / Math.pow(1024, digitGroups)) + " " + units[digitGroups];
+	}
+
+	public static String readableLong(long number) {
+		return new DecimalFormat("###,###.###").format(number);
+	}
+
 	private int accounts;
+	private TreeMap<String, Integer> amis = new TreeMap<String, Integer>();
 	private int apps;
 	private int ec2Instances;
 	private TreeMap<String, Integer> instancesByType = new TreeMap<String, Integer>();
 	private int regions;
 	private int resources;
+	private TreeMap<String, Integer> resourcesByAccount = new TreeMap<String, Integer>();
 	private TreeMap<AwsResourceType, Integer> resourcesByType = new TreeMap<AwsResourceType, Integer>();
+
 	private int resourceTypes;
-	private long s3DataSizeInGb;
+
+	private long s3DataSizeInBytes;
 	private long s3Objects;
+
 	private int teams;
 
 	/**
@@ -27,6 +45,13 @@ public class AwsStatsSummary {
 	 */
 	public int getAccounts() {
 		return accounts;
+	}
+
+	/**
+	 * @return the amis
+	 */
+	public TreeMap<String, Integer> getAMIs() {
+		return amis;
 	}
 
 	/**
@@ -65,6 +90,13 @@ public class AwsStatsSummary {
 	}
 
 	/**
+	 * @return the resourcesByAccount
+	 */
+	public TreeMap<String, Integer> getResourcesByAccount() {
+		return resourcesByAccount;
+	}
+
+	/**
 	 * @return the resourcesByType
 	 */
 	public TreeMap<AwsResourceType, Integer> getResourcesByType() {
@@ -79,10 +111,27 @@ public class AwsStatsSummary {
 	}
 
 	/**
-	 * @return the s3DataSizeInGb
+	 * @return the s3DataSizeInBytes
 	 */
-	public long getS3DataSizeInGb() {
-		return s3DataSizeInGb;
+	public long getS3DataSizeInBytes() {
+		return s3DataSizeInBytes;
+	}
+
+	/**
+	 * @return the s3DataSizeInGB
+	 */
+	public long getS3DataSizeInGB() {
+		if (s3DataSizeInBytes > 0)
+			return s3DataSizeInBytes / (1024 * 1024 * 1024);
+		else
+			return 0;
+	}
+
+	/**
+	 * @return the s3DataSize as readable text
+	 */
+	public String getS3DataSizeText() {
+		return readableFileSize(s3DataSizeInBytes);
 	}
 
 	/**
@@ -105,6 +154,14 @@ public class AwsStatsSummary {
 	 */
 	public void setAccounts(int accounts) {
 		this.accounts = accounts;
+	}
+
+	/**
+	 * @param amis
+	 *            the amis to set
+	 */
+	public void setAMIs(TreeMap<String, Integer> amis) {
+		this.amis = amis;
 	}
 
 	/**
@@ -148,6 +205,14 @@ public class AwsStatsSummary {
 	}
 
 	/**
+	 * @param resourcesByAccount
+	 *            the resourcesByAccount to set
+	 */
+	public void setResourcesByAccount(TreeMap<String, Integer> resourcesByAccount) {
+		this.resourcesByAccount = resourcesByAccount;
+	}
+
+	/**
 	 * @param resourcesByType
 	 *            the resourcesByType to set
 	 */
@@ -164,11 +229,11 @@ public class AwsStatsSummary {
 	}
 
 	/**
-	 * @param s3DataSizeInGb
-	 *            the s3DataSizeInGb to set
+	 * @param s3DataSizeInBytes
+	 *            the s3DataSizeInBytes to set
 	 */
-	public void setS3DataSizeInGb(long s3DataSizeInGb) {
-		this.s3DataSizeInGb = s3DataSizeInGb;
+	public void setS3DataSizeInBytes(long s3DataSizeInBytes) {
+		this.s3DataSizeInBytes = s3DataSizeInBytes;
 	}
 
 	/**

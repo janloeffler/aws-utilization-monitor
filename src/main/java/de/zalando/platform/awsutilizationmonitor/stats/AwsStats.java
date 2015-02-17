@@ -1,4 +1,4 @@
-package de.zalando.platform.awsutilizationmonitor.api;
+package de.zalando.platform.awsutilizationmonitor.stats;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -336,6 +336,29 @@ public class AwsStats {
 	}
 
 	/**
+	 * Get the resources running since x days.
+	 *
+	 * @param runningSinceDays
+	 *            Launched before x days
+	 * @return Resources that are running since x days.
+	 */
+	public AwsResource[] getResourcesRunningSince(int runningSinceDays) {
+		ArrayList<AwsResource> results = new ArrayList<AwsResource>();
+
+		for (AwsResource res : resources) {
+			String name = res.getName();
+			if (res.containsKey(AwsTag.RunningSinceDays) && ((int) res.get(AwsTag.RunningSinceDays) >= runningSinceDays) && (name != null)
+					&& (name.length() > 0) && !results.contains(res)) {
+				results.add(res);
+			}
+		}
+
+		results.sort(null);
+
+		return results.toArray(new AwsResource[results.size()]);
+	}
+
+	/**
 	 * @return all resources in one list grouped by AccountId, ResourceType each
 	 *         containing a list of resources.
 	 */
@@ -383,7 +406,6 @@ public class AwsStats {
 
 		long s3Objects = 0;
 		long s3DataSizeInBytes = 0;
-		long s3DataSizeInGb = 0;
 
 		for (AwsResource res : getResources(AwsResourceType.S3)) {
 			if (res.containsKey(AwsTag.Objects)) {
@@ -395,11 +417,8 @@ public class AwsStats {
 			}
 		}
 
-		if (s3DataSizeInBytes > 0) {
-			s3DataSizeInGb = s3DataSizeInBytes / (1024 * 1024 * 1024);
-		}
 		summary.setS3Objects(s3Objects);
-		summary.setS3DataSizeInGb(s3DataSizeInGb);
+		summary.setS3DataSizeInBytes(s3DataSizeInBytes);
 
 		TreeMap<AwsResourceType, Integer> resourcesByType = new TreeMap<AwsResourceType, Integer>();
 		for (AwsResourceType resourceType : getUsedResourceTypes()) {
@@ -415,6 +434,20 @@ public class AwsStats {
 		}
 		summary.setInstancesByType(instancesByType);
 
+		TreeMap<String, Integer> amis = new TreeMap<String, Integer>();
+		for (String ami : getUsedAMIs()) {
+			int amount = searchResources(AwsTag.AMI, ami).length;
+			amis.put(ami, amount);
+		}
+		summary.setAMIs(amis);
+
+		TreeMap<String, Integer> resourcesByAccount = new TreeMap<String, Integer>();
+		for (String account : getAccounts()) {
+			int amount = getResourcesByAccount(account).length;
+			resourcesByAccount.put(account, amount);
+		}
+		summary.setResourcesByAccount(resourcesByAccount);
+
 		return summary;
 	}
 
@@ -427,6 +460,26 @@ public class AwsStats {
 		String[] teams = (String[]) getValues("Team");
 		Arrays.sort(teams);
 		return teams;
+	}
+
+	/**
+	 * Returns all used AMIs.
+	 *
+	 * @return sorted list of all used AMIs.
+	 */
+	public String[] getUsedAMIs() {
+		ArrayList<String> results = new ArrayList<String>();
+
+		for (AwsResource res : resources) {
+			String ami = res.getAMI();
+			if ((ami != null) && (ami.length() > 0) && !results.contains(ami)) {
+				results.add(ami);
+			}
+		}
+
+		results.sort(null);
+
+		return results.toArray(new String[results.size()]);
 	}
 
 	/**
@@ -491,6 +544,19 @@ public class AwsStats {
 		results.sort(null);
 
 		return results.toArray(new String[results.size()]);
+	}
+
+	/**
+	 * Searches all resources that match the specified pattern.
+	 *
+	 * @param key
+	 *            key to search for
+	 * @param value
+	 *            value to search for
+	 * @return list of all matching resources
+	 */
+	public AwsResource[] searchResources(AwsTag key, String value) {
+		return searchResources(key.toString(), value);
 	}
 
 	/**

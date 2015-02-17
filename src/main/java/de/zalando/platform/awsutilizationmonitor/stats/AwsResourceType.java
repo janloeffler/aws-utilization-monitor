@@ -1,7 +1,7 @@
 /**
  *
  */
-package de.zalando.platform.awsutilizationmonitor.api;
+package de.zalando.platform.awsutilizationmonitor.stats;
 
 /**
  * @author jloeffler

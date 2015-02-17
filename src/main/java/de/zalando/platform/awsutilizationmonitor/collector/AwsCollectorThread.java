@@ -1,12 +1,16 @@
 /**
  *
  */
-package de.zalando.platform.awsutilizationmonitor.api;
+package de.zalando.platform.awsutilizationmonitor.collector;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.amazonaws.regions.Regions;
+
+import de.zalando.platform.awsutilizationmonitor.api.AwsAccount;
+import de.zalando.platform.awsutilizationmonitor.stats.AwsResourceType;
+import de.zalando.platform.awsutilizationmonitor.stats.AwsStats;
 
 /**
  * @author jloeffler

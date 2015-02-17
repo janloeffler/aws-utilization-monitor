@@ -3,6 +3,7 @@ package de.zalando.platform.awsutilizationmonitor.api;
 import java.io.UnsupportedEncodingException;
 import java.net.URLDecoder;
 import java.net.URLEncoder;
+import java.util.ArrayList;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -17,6 +18,12 @@ import org.springframework.web.bind.annotation.RestController;
 import com.amazonaws.regions.Regions;
 
 import de.zalando.platform.awsutilizationmonitor.api.view.StatsTable;
+import de.zalando.platform.awsutilizationmonitor.collector.AwsStatsCollector;
+import de.zalando.platform.awsutilizationmonitor.stats.AwsResource;
+import de.zalando.platform.awsutilizationmonitor.stats.AwsResourceType;
+import de.zalando.platform.awsutilizationmonitor.stats.AwsStats;
+import de.zalando.platform.awsutilizationmonitor.stats.AwsStatsSummary;
+import de.zalando.platform.awsutilizationmonitor.stats.AwsTag;
 
 @RestController
 final class AwsUtilizationMonitorController {
@@ -62,6 +69,29 @@ final class AwsUtilizationMonitorController {
 		return results;
 	}
 
+	@RequestMapping("/amis/")
+	@ResponseBody
+	String[] amis() {
+		LOG.info("called /amis/");
+
+		return collector.getStats().getUsedAMIs();
+	}
+
+	@RequestMapping("/amis/{ami}/")
+	@ResponseBody
+	AwsResource[] amis(@PathVariable String ami) {
+		ami = decodeParam(ami);
+		LOG.info("called /amis/" + ami + "/");
+
+		AwsResource[] res = collector.getStats().searchResources(AwsTag.AMI, ami);
+
+		if ((res == null) || (res.length == 0)) {
+			LOG.info("No instance found with AMI \"" + ami + "\"!");
+		}
+
+		return res;
+	}
+
 	@RequestMapping("/apps/")
 	@ResponseBody
 	String[] apps() {
@@ -69,6 +99,28 @@ final class AwsUtilizationMonitorController {
 
 		return collector.getStats().getApps();
 	}
+
+	// @RequestMapping("/credentials/")
+	// @ResponseBody
+	// AwsAccount[] credentials() {
+	// LOG.info("called /credentials/");
+	//
+	// ArrayList<AwsAccount> accounts = new ArrayList<AwsAccount>();
+	// accounts.add(new AwsAccount(
+	// "123456789012 (account-name1)",
+	// "ASIAI345ZKOMUQ76JZ2A",
+	// "LVxrdHkDGZKU566VuTQxFvc1gJOSHdSN095H2xim",
+	// "AQoDYXd45645645SV4ZYUGeo5uF5FQYsCcgOUBTIGe8blGuCGfLfmk51k3Ij3aSu6dIBQ2poLEm1SkcRD7S7MPdqrZSEnD1+4N8XRuZvyT9Z29DO5ZcAw0cVoBJWyGx+U68cywsfZLN3SqRkr+NvT5Xlg+ashwHPs/q4r4QoqjOOJ9M+y7leY4RmGNDfbTbRDgUY2tSttS9/fGS0KvprUPC4gOi6WwehrWcbw8NBfFUTtfP+G4YPnZB/ZJ0Jmc1IkbyIxLkzyZUysvhhAnmJffrrMCIPmF+GUyaTVsLLJ3Gwhy5tNNNEd7beH76t1G0euHKRkX6/ewqClITzE7wQtkpKDZYgLbHfCR4gfjfsH3+6KyP1XWZ46gbSrzTevG453ggTGWuuFAExMRNE2y1RJD46+twriMZRKuwi8mjGc554rz4Z5M4MKEGErv0qKf7jnrGVjIAtDYX30oyrNPb8eAMGDCHs/Fe5bfR4bSDr6PSmBQ=="));
+	// accounts.add(new AwsAccount("100000000000 (account-name2)",
+	// "bla", "blub", "SESSION"));
+	// accounts.add(new AwsAccount(
+	// "999999999999 (account-name3)",
+	// "ASIAI345ZKOMUQ76JZ2A",
+	// "LVxrdHkDGZKU566VuTQxFvc1gJOSHdSN095H2xim",
+	// "AQoDYXdzELD//////////wEa8AK2ZsPsLEh1pZKAVKk7oMWSV4ZYUGeo5uF5FQYsCcgOUBT235235blGuCGfLfmk51k3Ij3aSu6dIBQ2poLEm1SkcRD7S7MPdqrZSEnD1+4N8XRuZvyT9Z29DO5ZcAw0cVoBJWyGx+U68cywsfZLN3SqRkr+NvT5Xlg+ashwHPs/q4r4QoqjOOJ9M+y7leY4RmGNDfbTbRDgUY2tSttS9/fGS0KvprUPC4gOi6WwehrWcbw8NBfFUTtfP+G4YPnZB/ZJ0Jmc1IkbyIxLkzyZUysvhhAnmJffrrMCIPmF+GUyaTVsLLJ3Gwhy5tNNNEd7beH76t1G0euHKRkX6/ewqClITzE7wQtkpKDZYgLbHfCR4gfjfsH3+6KyP1XWZ46gbSrzTevG453ggTGWuuFAExMRNE2y1RJD46+twriMZRKuwi8mjGc554rz4Z5M4MKEGErv0qKf7jnrGVjIAtDYX30oyrNPb8eAMGDCHs/Fe5bfR4bSDr6PSmBQ=="));
+	//
+	// return accounts.toArray(new AwsAccount[accounts.size()]);
+	// }
 
 	@RequestMapping("/apps/{appName}/")
 	@ResponseBody
@@ -104,28 +156,6 @@ final class AwsUtilizationMonitorController {
 
 		return param;
 	}
-
-	// @RequestMapping("/credentials/")
-	// @ResponseBody
-	// AwsAccount[] credentials() {
-	// LOG.info("called /credentials/");
-	//
-	// ArrayList<AwsAccount> accounts = new ArrayList<AwsAccount>();
-	// accounts.add(new AwsAccount(
-	// "123456789012 (account-name1)",
-	// "ASIAI345ZKOMUQ76JZ2A",
-	// "LVxrdHkDGZKU566VuTQxFvc1gJOSHdSN095H2xim",
-	// "AQoDYXd45645645SV4ZYUGeo5uF5FQYsCcgOUBTIGe8blGuCGfLfmk51k3Ij3aSu6dIBQ2poLEm1SkcRD7S7MPdqrZSEnD1+4N8XRuZvyT9Z29DO5ZcAw0cVoBJWyGx+U68cywsfZLN3SqRkr+NvT5Xlg+ashwHPs/q4r4QoqjOOJ9M+y7leY4RmGNDfbTbRDgUY2tSttS9/fGS0KvprUPC4gOi6WwehrWcbw8NBfFUTtfP+G4YPnZB/ZJ0Jmc1IkbyIxLkzyZUysvhhAnmJffrrMCIPmF+GUyaTVsLLJ3Gwhy5tNNNEd7beH76t1G0euHKRkX6/ewqClITzE7wQtkpKDZYgLbHfCR4gfjfsH3+6KyP1XWZ46gbSrzTevG453ggTGWuuFAExMRNE2y1RJD46+twriMZRKuwi8mjGc554rz4Z5M4MKEGErv0qKf7jnrGVjIAtDYX30oyrNPb8eAMGDCHs/Fe5bfR4bSDr6PSmBQ=="));
-	// accounts.add(new AwsAccount("100000000000 (account-name2)",
-	// "bla", "blub", "SESSION"));
-	// accounts.add(new AwsAccount(
-	// "999999999999 (account-name3)",
-	// "ASIAI345ZKOMUQ76JZ2A",
-	// "LVxrdHkDGZKU566VuTQxFvc1gJOSHdSN095H2xim",
-	// "AQoDYXdzELD//////////wEa8AK2ZsPsLEh1pZKAVKk7oMWSV4ZYUGeo5uF5FQYsCcgOUBT235235blGuCGfLfmk51k3Ij3aSu6dIBQ2poLEm1SkcRD7S7MPdqrZSEnD1+4N8XRuZvyT9Z29DO5ZcAw0cVoBJWyGx+U68cywsfZLN3SqRkr+NvT5Xlg+ashwHPs/q4r4QoqjOOJ9M+y7leY4RmGNDfbTbRDgUY2tSttS9/fGS0KvprUPC4gOi6WwehrWcbw8NBfFUTtfP+G4YPnZB/ZJ0Jmc1IkbyIxLkzyZUysvhhAnmJffrrMCIPmF+GUyaTVsLLJ3Gwhy5tNNNEd7beH76t1G0euHKRkX6/ewqClITzE7wQtkpKDZYgLbHfCR4gfjfsH3+6KyP1XWZ46gbSrzTevG453ggTGWuuFAExMRNE2y1RJD46+twriMZRKuwi8mjGc554rz4Z5M4MKEGErv0qKf7jnrGVjIAtDYX30oyrNPb8eAMGDCHs/Fe5bfR4bSDr6PSmBQ=="));
-	//
-	// return accounts.toArray(new AwsAccount[accounts.size()]);
-	// }
 
 	String encodeParam(String param) {
 		try {
@@ -180,7 +210,7 @@ final class AwsUtilizationMonitorController {
 				+ "<li><a href=/teams/>/teams/</a> List team names if \"team\" tag was specified</li>"
 				+ "<li><a href=/teams/Platform/>/teams/{team_name}/</a> Show resources of team \"Platform\"</li>"
 				+ "<li><a href=/test/>/test/</a> Generate test data</li>"
-				+ "<li><a href=/test/30>/test/{maxItems}</a> Generate test data with 30 items</li>"
+				+ "<li><a href=/test/30/>/test/{maxItems}</a> Generate test data with 30 items</li>"
 				+ "<li><a href=/values/Team/Platform/>/values/{key_name}/{value_pattern}/</a> Show resources that contain a value with the key \"Team\" and the pattern \"Platform\"</li>"
 				+ "</ul></p></body></html>";
 	}
@@ -201,7 +231,7 @@ final class AwsUtilizationMonitorController {
 		AwsResource[] res = collector.getStats().getResourcesByEC2InstanceType(instanceType);
 
 		if ((res == null) || (res.length == 0)) {
-			LOG.info("No app found with instance type \"" + instanceType + "\"!");
+			LOG.info("No instance found with instance type \"" + instanceType + "\"!");
 		}
 
 		return res;
@@ -316,11 +346,26 @@ final class AwsUtilizationMonitorController {
 		String[] apps = stats.getApps();
 		String[] publicApps = stats.getPublicApps();
 		String[] instanceTypes = stats.getUsedEC2InstanceTypes();
+		String[] amis = stats.getUsedAMIs();
 		AwsResource[] ec2instances = stats.getResources(AwsResourceType.EC2);
 		AwsStatsSummary summary = stats.getSummary();
 
 		s.append("<html><header><style>p, li, ul, a { font-family:'Courier New', Arial; }</style></header><body><h1>AWS Utilization Statistics</h1><p>"
 				+ "<a href=/>Back to overview</a><ul><li><a href=/resources/>" + resources.length + "</a> resources used</li>");
+
+		/*
+		 * accounts
+		 */
+		s.append("<li><a href=/accounts/>" + accounts.length + "</a> accounts</li><ul>");
+		t.clear();
+
+		for (String accountName : accounts) {
+			int amount = stats.getResourcesByAccount(accountName).length;
+			t.add(amount, "<li><a href=/accounts/" + encodeParam(accountName) + "/>" + amount + "</a> resources by \"" + accountName + "\"</li>");
+		}
+
+		s.append(t.printSorted());
+		s.append("</ul>");
 
 		/*
 		 * regions
@@ -347,24 +392,11 @@ final class AwsUtilizationMonitorController {
 			String text = resourceType.toString();
 
 			if ((resourceType == AwsResourceType.S3) && (summary.getS3Objects() > 0)) {
-				text = resourceType.toString() + "(data size: " + summary.getS3DataSizeInGb() + " GB, objects: " + summary.getS3Objects() + ")";
+				text = resourceType.toString() + "(data size: " + AwsStatsSummary.readableFileSize(summary.getS3DataSizeInBytes()) + ", objects: "
+						+ AwsStatsSummary.readableLong(summary.getS3Objects()) + ")";
 			}
 
 			t.add(amount, "<li><a href=/types/" + resourceType + "/>" + amount + "</a> " + text + "</li>");
-		}
-
-		s.append(t.printSorted());
-		s.append("</ul>");
-
-		/*
-		 * accounts
-		 */
-		s.append("<li><a href=/accounts/>" + accounts.length + "</a> accounts</li><ul>");
-		t.clear();
-
-		for (String accountName : accounts) {
-			int amount = stats.getResourcesByAccount(accountName).length;
-			t.add(amount, "<li><a href=/accounts/" + encodeParam(accountName) + "/>" + amount + "</a> resources by \"" + accountName + "\"</li>");
 		}
 
 		s.append(t.printSorted());
@@ -377,7 +409,7 @@ final class AwsUtilizationMonitorController {
 		t.clear();
 
 		for (String teamName : teams) {
-			int amount = stats.searchResources("Team", teamName).length;
+			int amount = stats.getResourcesByTeam(teamName).length;
 			t.add(amount, "<li><a href=/values/Team/" + encodeParam(teamName) + "/>" + amount + "</a> resources by \"" + teamName + "\"</li>");
 		}
 
@@ -414,6 +446,28 @@ final class AwsUtilizationMonitorController {
 		s.append("</ul>");
 
 		/*
+		 * Instances that are running since > 30 days
+		 */
+		int maxDays = 30;
+		int runningSinceDays = 0;
+		ArrayList<String> names = new ArrayList<String>();
+		t.clear();
+		for (AwsResource res : stats.getResourcesRunningSince(maxDays)) {
+			String name = res.getName();
+			if (!names.contains(name)) {
+				int days = (int) res.get(AwsTag.RunningSinceDays);
+				t.add(days, "<li>" + days + " days: <a href=/resources/" + encodeParam(name) + "/>" + name + "</a></li>");
+				names.add(name);
+			}
+			runningSinceDays++;
+		}
+
+		s.append("<li>" + runningSinceDays + " EC2 instances are running since > " + maxDays + " days</li>" + "<ul>");
+
+		s.append(t.printSorted());
+		s.append("</ul>");
+
+		/*
 		 * EC2 instance types
 		 */
 		s.append("<li><a href=/instancetypes/>" + instanceTypes.length + "</a> used EC2 instance types by <a href=/types/EC2/>" + ec2instances.length
@@ -423,6 +477,20 @@ final class AwsUtilizationMonitorController {
 		for (String instanceType : instanceTypes) {
 			int amount = stats.getResourcesByEC2InstanceType(instanceType).length;
 			t.add(amount, "<li><a href=/instancetypes/" + encodeParam(instanceType) + "/>" + amount + "</a> instances with \"" + instanceType + "\"</li>");
+		}
+
+		s.append(t.printSorted());
+		s.append("</ul>");
+
+		/*
+		 * AMIs
+		 */
+		s.append("<li><a href=/amis/>" + amis.length + "</a> used EC2 AMIs by <a href=/types/EC2/>" + ec2instances.length + "</a> EC2 instances</li><ul>");
+		t.clear();
+
+		for (String ami : amis) {
+			int amount = stats.searchResources(AwsTag.AMI, ami).length;
+			t.add(amount, "<li><a href=/amis/" + encodeParam(ami) + "/>" + amount + "</a> instances with AMI \"" + ami + "\"</li>");
 		}
 
 		s.append(t.printSorted());

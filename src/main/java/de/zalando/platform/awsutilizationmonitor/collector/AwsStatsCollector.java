@@ -1,10 +1,11 @@
 /**
  * This class keeps the connection to AWS open and caches the result set for statistics.
  */
-package de.zalando.platform.awsutilizationmonitor.api;
+package de.zalando.platform.awsutilizationmonitor.collector;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Hashtable;
 import java.util.List;
 
 import org.joda.time.DateTime;
@@ -17,6 +18,7 @@ import com.amazonaws.AmazonClientException;
 import com.amazonaws.AmazonServiceException;
 import com.amazonaws.SDKGlobalConfiguration;
 import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
+import com.amazonaws.auth.InstanceProfileCredentialsProvider;
 import com.amazonaws.regions.Region;
 import com.amazonaws.regions.Regions;
 import com.amazonaws.services.cloudsearchv2.AmazonCloudSearchClient;
@@ -29,6 +31,7 @@ import com.amazonaws.services.ec2.AmazonEC2;
 import com.amazonaws.services.ec2.AmazonEC2Client;
 import com.amazonaws.services.ec2.model.DescribeAvailabilityZonesResult;
 import com.amazonaws.services.ec2.model.DescribeInstancesResult;
+import com.amazonaws.services.ec2.model.Image;
 import com.amazonaws.services.ec2.model.Instance;
 import com.amazonaws.services.ec2.model.Reservation;
 import com.amazonaws.services.ec2.model.Tag;
@@ -69,6 +72,12 @@ import com.amazonaws.services.sns.AmazonSNSClient;
 import com.amazonaws.services.sns.model.PlatformApplication;
 import com.amazonaws.services.sns.model.Subscription;
 import com.amazonaws.services.sqs.AmazonSQSClient;
+
+import de.zalando.platform.awsutilizationmonitor.api.AwsAccount;
+import de.zalando.platform.awsutilizationmonitor.stats.AwsResource;
+import de.zalando.platform.awsutilizationmonitor.stats.AwsResourceType;
+import de.zalando.platform.awsutilizationmonitor.stats.AwsStats;
+import de.zalando.platform.awsutilizationmonitor.stats.AwsTag;
 
 /**
  * @author jloeffler
@@ -112,8 +121,7 @@ public final class AwsStatsCollector {
 	public static final Logger LOG = LoggerFactory.getLogger(AwsStatsCollector.class);
 	private static final long PROGRESS_TICK = 30000;
 
-	@Value("${connection.components.s3.details:true}")
-	private static boolean s3Details = true;
+	private static boolean S3_DETAILS = true;
 
 	/**
 	 * Collect data for CloudFront.
@@ -265,8 +273,23 @@ public final class AwsStatsCollector {
 			// + " resid=" + tag.getResourceId());
 			// }
 
-			// DescribeImagesResult imagesResult = ec2.describeImages();
-			// LOG.info(imagesResult.getImages().size() + " EC2 images");
+			/*
+			 * Load AMI images.
+			 */
+			Hashtable<String, String> imageTable = new Hashtable<String, String>();
+			try {
+				List<Image> images = ec2.describeImages().getImages();
+				LOG.info(images.size() + " EC2 images");
+				for (Image image : images) {
+					try {
+						imageTable.put(image.getImageId(), image.getName());
+					} catch (Exception e) {
+					}
+				}
+			} catch (Exception e) {
+				LOG.error("Exception in loading image list for EC2 in region " + region.getName() + " in account " + account.getAccountId() + ": "
+						+ e.getMessage());
+			}
 
 			// DescribeSecurityGroupsResult securityGroupsResult =
 			// ec2.describeSecurityGroups();
@@ -294,6 +317,15 @@ public final class AwsStatsCollector {
 						res.addInfo(AwsTag.PrivateDnsName, instance.getPrivateDnsName());
 
 						try {
+							String ami = instance.getImageId();
+							if ((ami != null) && imageTable.containsKey(ami)) {
+								ami = imageTable.get(ami);
+							}
+							res.addInfo(AwsTag.AMI, ami);
+						} catch (Exception ex) {
+						}
+
+						try {
 							res.addInfo(AwsTag.PublicIpAddress, instance.getPublicIpAddress());
 							res.addInfo(AwsTag.PublicDnsName, instance.getPublicDnsName());
 						} catch (Exception ex) {
@@ -301,7 +333,11 @@ public final class AwsStatsCollector {
 							// pointer exception :-(
 						}
 
+						int days = (int) ((DateTime.now().getMillis() - instance.getLaunchTime().getTime()) / (24 * 60 * 60 * 1000));
+						// keep getLaunchTime().toString(), since it will be
+						// long millis instead
 						res.addInfo(AwsTag.LaunchTime, instance.getLaunchTime().toString());
+						res.addInfo(AwsTag.RunningSinceDays, days);
 						res.addInfo(AwsTag.State, instance.getState().getName());
 						res.addInfo(AwsTag.AvailabilityZone, instance.getPlacement().getAvailabilityZone());
 
@@ -643,10 +679,10 @@ public final class AwsStatsCollector {
 
 		/*
 		 * Amazon S3
-		 *
+		 * 
 		 * The AWS S3 client allows you to manage buckets and programmatically
 		 * put and get objects to those buckets.
-		 *
+		 * 
 		 * In this sample, we use an S3 client to iterate over all the buckets
 		 * owned by the current user, and all the object metadata in each
 		 * bucket, to obtain a total object and space usage count. This is done
@@ -676,7 +712,7 @@ public final class AwsStatsCollector {
 				 */
 				long size = 0;
 				long items = 0;
-				if (s3Details) {
+				if (S3_DETAILS) {
 					ObjectListing objects = s3.listObjects(bucket.getName());
 					do {
 						for (S3ObjectSummary objectSummary : objects.getObjectSummaries()) {
@@ -748,10 +784,10 @@ public final class AwsStatsCollector {
 
 		/*
 		 * Amazon SimpleDB
-		 *
+		 * 
 		 * The AWS SimpleDB client allows you to query and manage your data
 		 * stored in SimpleDB domains (similar to tables in a relational DB).
-		 *
+		 * 
 		 * In this sample, we use a SimpleDB client to iterate over all the
 		 * domains owned by the current user, and add up the number of items
 		 * (similar to rows of data in a relational DB) in each domain.
@@ -866,6 +902,9 @@ public final class AwsStatsCollector {
 	@Value("${connection.components.ignore}")
 	private String[] ignoredComponents;
 
+	@Value("${connection.components.s3.details:true}")
+	private boolean s3Details = true;
+
 	private AwsStats stats = null;
 
 	@Value("${connection.regions:EU_WEST_1, EU_CENTRAL_1}")
@@ -900,6 +939,8 @@ public final class AwsStatsCollector {
 		ArrayList<Thread> threads = new ArrayList<Thread>();
 		DateTime startTime = DateTime.now();
 		lastCollectTime = DateTime.now();
+
+		S3_DETAILS = s3Details;
 
 		/*
 		 * Configuration
@@ -1010,23 +1051,8 @@ public final class AwsStatsCollector {
 
 	private void loadAccounts() {
 		if (accounts.isEmpty()) {
-			// accounts.add(new AwsAccount(new
-			// InstanceProfileCredentialsProvider().getCredentials()));
 			accounts.add(new AwsAccount(new DefaultAWSCredentialsProviderChain().getCredentials()));
-			/*
-			 * The ProfileCredentialsProvider will return your [default]
-			 * credential profile by reading from the credentials file located
-			 * at (~/.aws/credentials).
-			 */
-			/*
-			 * try { // accounts.add(new AwsAccount(new //
-			 * ProfileCredentialsProvider().getCredentials())); } catch
-			 * (Exception e) { throw new AmazonClientException(
-			 * "Cannot load the credentials from the credential profiles file. "
-			 * +
-			 * "Please make sure that your credentials file is at the correct "
-			 * + "location (~/.aws/credentials), and is in valid format.", e); }
-			 */
+			accounts.add(new AwsAccount(new InstanceProfileCredentialsProvider().getCredentials()));
 		}
 	}
 
