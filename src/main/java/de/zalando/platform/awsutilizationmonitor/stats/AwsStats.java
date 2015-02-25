@@ -547,6 +547,15 @@ public class AwsStats {
 	}
 
 	/**
+	 * Check if object contains any resources.
+	 *
+	 * @return true if no resources contained.
+	 */
+	public boolean isEmpty() {
+		return getItemCount() == 0;
+	}
+
+	/**
 	 * Searches all resources that match the specified pattern.
 	 *
 	 * @param key
