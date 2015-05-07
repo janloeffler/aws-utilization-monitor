@@ -13,6 +13,7 @@ import org.slf4j.LoggerFactory;
 import com.amazonaws.regions.Regions;
 
 import de.zalando.platform.awsutilizationmonitor.api.AwsAccount;
+import de.zalando.platform.awsutilizationmonitor.config.Config;
 import de.zalando.platform.awsutilizationmonitor.stats.AwsResourceType;
 import de.zalando.platform.awsutilizationmonitor.stats.AwsStats;
 
@@ -24,21 +25,27 @@ public class AwsCollectorThread extends Thread {
 	public static final Logger LOG = LoggerFactory.getLogger(AwsCollectorThread.class);
 
 	private ArrayList<AwsAccount> accounts;
-	private String[] ignoredComponents;
+	private Config config;
 	private boolean isRunning = false;
 	private AwsStats stats;
-	private String[] supportedRegions;
 
 	/**
 	 * @param stats
 	 * @param supportedRegions
 	 * @param ignoredComponents
 	 */
-	public AwsCollectorThread(AwsStats stats, ArrayList<AwsAccount> accounts, String[] supportedRegions, String[] ignoredComponents) {
+	public AwsCollectorThread(AwsStats stats, ArrayList<AwsAccount> accounts, Config config) {
 		this.stats = stats;
 		this.accounts = accounts;
-		this.supportedRegions = supportedRegions;
-		this.ignoredComponents = ignoredComponents;
+		this.config = config;
+	}
+
+	private boolean isAllowed(AwsResourceType res) {
+		String allow = Arrays.toString(config.getAllowedComponents()).toLowerCase();
+		String ignore = Arrays.toString(config.getIgnoredComponents()).toLowerCase();
+
+		return !ignore.contains(res.toString().toLowerCase())
+				&& ((allow.length() == 0) || allow.contains(res.toString().toLowerCase()));
 	}
 
 	public boolean isRunning() {
@@ -47,7 +54,7 @@ public class AwsCollectorThread extends Thread {
 
 	/*
 	 * (non-Javadoc)
-	 * 
+	 *
 	 * @see java.lang.Thread#run()
 	 */
 	@Override
@@ -63,19 +70,27 @@ public class AwsCollectorThread extends Thread {
 		/*
 		 * Configuration
 		 */
-		LOG.info("Supported regions: " + Arrays.toString(supportedRegions));
+		LOG.info("Supported regions: " + Arrays.toString(config.getSupportedRegions()));
 		ArrayList<Regions> regions = new ArrayList<Regions>();
-		for (String s : supportedRegions) {
+		for (String s : config.getSupportedRegions()) {
 			regions.add(Regions.valueOf(s));
 		}
 
-		LOG.info("Ignored recources: " + Arrays.toString(ignoredComponents));
+		String allow = Arrays.toString(config.getAllowedComponents()).toLowerCase();
+		String ignore = Arrays.toString(config.getIgnoredComponents()).toLowerCase();
+
+		if (allow.length() > 0) {
+			LOG.info("Allowed recources: " + Arrays.toString(config.getAllowedComponents()));
+		}
+		if (ignore.length() > 0) {
+			LOG.info("Ignored recources: " + Arrays.toString(config.getIgnoredComponents()));
+		}
+
 		ArrayList<AwsResourceType> resourceTypes = new ArrayList<AwsResourceType>();
-		String ignore = Arrays.toString(ignoredComponents).toLowerCase();
 		for (AwsResourceType resourceType : AwsResourceType.values()) {
 
 			// exclude S3 and scan it afterwards separately
-			if ((resourceType != AwsResourceType.Unknown) && (resourceType != AwsResourceType.S3) && !ignore.contains(resourceType.toString().toLowerCase())) {
+			if ((resourceType != AwsResourceType.Unknown) && (resourceType != AwsResourceType.S3) && isAllowed(resourceType)) {
 				resourceTypes.add(resourceType);
 			}
 		}
@@ -90,16 +105,18 @@ public class AwsCollectorThread extends Thread {
 				/*
 				 * scan S3 only once
 				 */
-				AwsScanThread thread = new AwsScanThread(stats, account, Regions.EU_WEST_1, AwsResourceType.S3);
-				threads.add(thread);
-				thread.start();
+				if (isAllowed(AwsResourceType.S3)) {
+					AwsScanThread thread = new AwsScanThread(stats, account, Regions.EU_WEST_1, AwsResourceType.S3);
+					threads.add(thread);
+					thread.start();
+				}
 
 				/*
 				 * scan each resource type in each region
 				 */
 				for (Regions region : regions) {
 					for (AwsResourceType resourceType : resourceTypes) {
-						thread = new AwsScanThread(stats, account, region, resourceType);
+						AwsScanThread thread = new AwsScanThread(stats, account, region, resourceType);
 						threads.add(thread);
 						thread.start();
 					}

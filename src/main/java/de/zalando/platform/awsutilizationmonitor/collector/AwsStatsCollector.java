@@ -15,6 +15,7 @@ import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
 import com.amazonaws.auth.InstanceProfileCredentialsProvider;
 
 import de.zalando.platform.awsutilizationmonitor.api.AwsAccount;
+import de.zalando.platform.awsutilizationmonitor.config.Config;
 import de.zalando.platform.awsutilizationmonitor.stats.AwsStats;
 
 /**
@@ -60,11 +61,13 @@ public final class AwsStatsCollector {
 
 	private ArrayList<AwsAccount> accounts = new ArrayList<AwsAccount>();
 
+	@Value("${connection.components.allow}")
+	private String[] allowedComponents;
+
 	@Value("${connection.cache.duration:3600000}")
 	private int cacheDuration;
 
 	private AwsCollectorThread collectorThread = null;
-
 	@Value("${connection.components.ignore}")
 	private String[] ignoredComponents;
 	@Value("${connection.components.s3.details:true}")
@@ -104,7 +107,7 @@ public final class AwsStatsCollector {
 
 		loadAccounts();
 
-		collectorThread = new AwsCollectorThread(currentStats, accounts, supportedRegions, ignoredComponents);
+		collectorThread = new AwsCollectorThread(currentStats, accounts, getConfig());
 		collectorThread.start();
 
 		this.stats = currentStats;
@@ -132,6 +135,17 @@ public final class AwsStatsCollector {
 		}
 
 		stats.generateSampleData(maxItems);
+	}
+
+	public Config getConfig() {
+		Config c = new Config();
+		c.setAllowedComponents(allowedComponents);
+		c.setCacheDuration(cacheDuration);
+		c.setIgnoredComponents(ignoredComponents);
+		c.setS3Details(s3Details);
+		c.setSupportedRegions(supportedRegions);
+
+		return c;
 	}
 
 	/**
@@ -175,5 +189,13 @@ public final class AwsStatsCollector {
 			this.accounts.add(account);
 			LOG.info("Added " + account.toString());
 		}
+	}
+
+	public void setConfig(Config c) {
+		allowedComponents = c.getAllowedComponents();
+		cacheDuration = c.getCacheDuration();
+		ignoredComponents = c.getIgnoredComponents();
+		s3Details = c.isS3Details();
+		supportedRegions = c.getSupportedRegions();
 	}
 }

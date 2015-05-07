@@ -19,6 +19,7 @@ import com.amazonaws.regions.Regions;
 
 import de.zalando.platform.awsutilizationmonitor.api.view.StatsTable;
 import de.zalando.platform.awsutilizationmonitor.collector.AwsStatsCollector;
+import de.zalando.platform.awsutilizationmonitor.config.Config;
 import de.zalando.platform.awsutilizationmonitor.stats.AwsResource;
 import de.zalando.platform.awsutilizationmonitor.stats.AwsResourceType;
 import de.zalando.platform.awsutilizationmonitor.stats.AwsStats;
@@ -100,6 +101,21 @@ final class AwsUtilizationMonitorController {
 		return collector.getStats().getApps();
 	}
 
+	@RequestMapping("/apps/{appName}/")
+	@ResponseBody
+	AwsResource[] apps(@PathVariable String appName) {
+		appName = decodeParam(appName);
+		LOG.info("called /apps/" + appName + "/");
+
+		AwsResource[] res = collector.getStats().getAppInstances(appName);
+
+		if ((res == null) || (res.length == 0)) {
+			LOG.info("No app found with name \"" + appName + "\"!");
+		}
+
+		return res;
+	}
+
 	// @RequestMapping("/credentials/")
 	// @ResponseBody
 	// AwsAccount[] credentials() {
@@ -122,21 +138,6 @@ final class AwsUtilizationMonitorController {
 	// return accounts.toArray(new AwsAccount[accounts.size()]);
 	// }
 
-	@RequestMapping("/apps/{appName}/")
-	@ResponseBody
-	AwsResource[] apps(@PathVariable String appName) {
-		appName = decodeParam(appName);
-		LOG.info("called /apps/" + appName + "/");
-
-		AwsResource[] res = collector.getStats().getAppInstances(appName);
-
-		if ((res == null) || (res.length == 0)) {
-			LOG.info("No app found with name \"" + appName + "\"!");
-		}
-
-		return res;
-	}
-
 	@RequestMapping("/clear/")
 	@ResponseBody
 	String clear() {
@@ -145,6 +146,24 @@ final class AwsUtilizationMonitorController {
 		collector.clearCache();
 
 		return "Cache empty";
+	}
+
+	@RequestMapping("/config/")
+	@ResponseBody
+	Config config() {
+		LOG.info("called /config/");
+
+		return collector.getConfig();
+	}
+
+	@RequestMapping(value = "/config/", method = RequestMethod.PUT)
+	@ResponseBody
+	void config(@RequestBody Config config) {
+		LOG.info("called PUT /config/");
+
+		collector.setConfig(config);
+
+		LOG.info("overwrote config " + config.toString());
 	}
 
 	String decodeParam(String param) {
@@ -188,31 +207,31 @@ final class AwsUtilizationMonitorController {
 		LOG.info("called /");
 
 		return "<html><header><style>p, li, ul, a { font-family:'Courier New', Arial; }</style></header><body><h1>AWS Utilization Statistics</h1><p><ul>"
-				+ "<li><a href=/accounts/>/accounts/</a> List accounts</li>"
-				+ "<li><a href=/accounts/123456789012/>/accounts/{account_name}/</a> Show resources used by account with name \"123456789012\"</li>"
-				+ "<li><a href=/apps/>/apps/</a> List EC2 based apps</li>"
-				+ "<li><a href=/apps/NAT/>/apps/{app_name}/</a> Show EC2 based apps with name \"NAT\"</li>"
-				+ "<li><a href=/clear/>/clear/</a> Clear data cache</li>"
-				+ "<li><a href=/health/>/health/</a> Show health</li>"
-				+ "<li><a href=/instancetypes/>/instancetypes/</a> List used EC2 instance types</li>"
-				+ "<li><a href=/instancetypes/"
-				+ encodeParam("t2.micro")
-				+ "/>/instancetypes/{instance_type}/</a> Show EC2 based apps with instance type \"t2.micro\"</li>"
-				+ "<li><a href=/keys/>/keys/</a> List keys</li>"
-				+ "<li><a href=/keys/PublicDnsName/>/keys/{key_name}/</a> Show resources that contain a value with the key \"PublicDnsName\"</li>"
-				+ "<li><a href=/regions/>/regions/</a> List regions</li>"
-				+ "<li><a href=/regions/EU_WEST_1/>/regions/{region_name}/</a> Show resources used by region with name \"EU_WEST_1\"</li>"
-				+ "<li><a href=/resources/>/resources/</a> List resources</li>"
-				+ "<li><a href=/resources/NAT/>/resources/{resource_name}/</a> Show resources with name \"NAT\"</li>"
-				+ "<li><a href=/search/banana/>/search/{search_pattern}/</a> Show app with name \"banana\"</li>"
-				+ "<li><a href=/statistics/>/statistics/</a> Show statistics about resource usage</li>"
-				+ "<li><a href=/summary/>/summary/</a> Show summary KPIs only about resource usage</li>"
-				+ "<li><a href=/teams/>/teams/</a> List team names if \"team\" tag was specified</li>"
-				+ "<li><a href=/teams/Platform/>/teams/{team_name}/</a> Show resources of team \"Platform\"</li>"
-				+ "<li><a href=/test/>/test/</a> Generate test data</li>"
-				+ "<li><a href=/test/30/>/test/{maxItems}</a> Generate test data with 30 items</li>"
-				+ "<li><a href=/values/Team/Platform/>/values/{key_name}/{value_pattern}/</a> Show resources that contain a value with the key \"Team\" and the pattern \"Platform\"</li>"
-				+ "</ul></p></body></html>";
+		+ "<li><a href=/accounts/>/accounts/</a> List accounts</li>"
+		+ "<li><a href=/accounts/123456789012/>/accounts/{account_name}/</a> Show resources used by account with name \"123456789012\"</li>"
+		+ "<li><a href=/apps/>/apps/</a> List EC2 based apps</li>"
+		+ "<li><a href=/apps/NAT/>/apps/{app_name}/</a> Show EC2 based apps with name \"NAT\"</li>"
+		+ "<li><a href=/clear/>/clear/</a> Clear data cache</li>"
+		+ "<li><a href=/health/>/health/</a> Show health</li>"
+		+ "<li><a href=/instancetypes/>/instancetypes/</a> List used EC2 instance types</li>"
+		+ "<li><a href=/instancetypes/"
+		+ encodeParam("t2.micro")
+		+ "/>/instancetypes/{instance_type}/</a> Show EC2 based apps with instance type \"t2.micro\"</li>"
+		+ "<li><a href=/keys/>/keys/</a> List keys</li>"
+		+ "<li><a href=/keys/PublicDnsName/>/keys/{key_name}/</a> Show resources that contain a value with the key \"PublicDnsName\"</li>"
+		+ "<li><a href=/regions/>/regions/</a> List regions</li>"
+		+ "<li><a href=/regions/EU_WEST_1/>/regions/{region_name}/</a> Show resources used by region with name \"EU_WEST_1\"</li>"
+		+ "<li><a href=/resources/>/resources/</a> List resources</li>"
+		+ "<li><a href=/resources/NAT/>/resources/{resource_name}/</a> Show resources with name \"NAT\"</li>"
+		+ "<li><a href=/search/banana/>/search/{search_pattern}/</a> Show app with name \"banana\"</li>"
+		+ "<li><a href=/statistics/>/statistics/</a> Show statistics about resource usage</li>"
+		+ "<li><a href=/summary/>/summary/</a> Show summary KPIs only about resource usage</li>"
+		+ "<li><a href=/teams/>/teams/</a> List team names if \"team\" tag was specified</li>"
+		+ "<li><a href=/teams/Platform/>/teams/{team_name}/</a> Show resources of team \"Platform\"</li>"
+		+ "<li><a href=/test/>/test/</a> Generate test data</li>"
+		+ "<li><a href=/test/30/>/test/{maxItems}</a> Generate test data with 30 items</li>"
+		+ "<li><a href=/values/Team/Platform/>/values/{key_name}/{value_pattern}/</a> Show resources that contain a value with the key \"Team\" and the pattern \"Platform\"</li>"
+		+ "</ul></p></body></html>";
 	}
 
 	@RequestMapping("/instancetypes/")

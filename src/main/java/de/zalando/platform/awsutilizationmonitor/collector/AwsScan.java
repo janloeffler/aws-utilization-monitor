@@ -238,12 +238,6 @@ public class AwsScan {
 			LOG.info(availabilityZonesResult.getAvailabilityZones().size() + " Availability Zones in region " + region.getName() + " in account "
 					+ account.getAccountId());
 
-			// DescribeTagsResult tagsResult = ec2.describeTags();
-			// for (TagDescription tag : tagsResult.getTags()) {
-			// LOG.info("tag: key=" + tag.getKey() + "; value=" + tag.getValue()
-			// + " resid=" + tag.getResourceId());
-			// }
-
 			/*
 			 * Load AMI images.
 			 */
@@ -261,17 +255,6 @@ public class AwsScan {
 				LOG.error("Exception in loading image list for EC2 in region " + region.getName() + " in account " + account.getAccountId() + ": "
 						+ e.getMessage());
 			}
-
-			// DescribeSecurityGroupsResult securityGroupsResult =
-			// ec2.describeSecurityGroups();
-			// LOG.info(securityGroupsResult.getSecurityGroups().size() +
-			// " EC2 security groups in region " + region.getName() +
-			// " in account " + account.getAccountId());
-
-			// DescribeVolumesResult volumesResult = ec2.describeVolumes();
-			// LOG.info(volumesResult.getVolumes().size() +
-			// " EC2 volumes in region " + region.getName() + " in account " +
-			// account.getAccountId());
 
 			DescribeInstancesResult describeInstancesResult = ec2.describeInstances();
 			List<Reservation> reservations = describeInstancesResult.getReservations();
