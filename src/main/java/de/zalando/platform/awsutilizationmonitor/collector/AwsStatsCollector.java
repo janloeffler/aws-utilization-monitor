@@ -4,6 +4,7 @@
 package de.zalando.platform.awsutilizationmonitor.collector;
 
 import java.util.ArrayList;
+import java.util.List;
 
 import org.joda.time.DateTime;
 import org.slf4j.Logger;
@@ -59,7 +60,7 @@ public final class AwsStatsCollector {
 
 	public static final Logger LOG = LoggerFactory.getLogger(AwsStatsCollector.class);
 
-	private ArrayList<AwsAccount> accounts = new ArrayList<AwsAccount>();
+	private List<AwsAccount> accounts = new ArrayList<AwsAccount>();
 
 	@Value("${connection.components.allow}")
 	private String[] allowedComponents;

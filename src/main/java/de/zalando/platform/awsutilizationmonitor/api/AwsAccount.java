@@ -126,7 +126,7 @@ public class AwsAccount {
 				accountId = arn;
 			}
 
-			if (accountId.length() == 0) {
+			if ((accountId == null) || (accountId.length() == 0)) {
 				LOG.warn("Cannot lookup account id: " + e.getMessage());
 			}
 		} catch (Exception ex) {

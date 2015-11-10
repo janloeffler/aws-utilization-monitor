@@ -5,6 +5,7 @@ package de.zalando.platform.awsutilizationmonitor.collector;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 
 import org.joda.time.DateTime;
 import org.slf4j.Logger;
@@ -24,7 +25,7 @@ import de.zalando.platform.awsutilizationmonitor.stats.AwsStats;
 public class AwsCollectorThread extends Thread {
 	public static final Logger LOG = LoggerFactory.getLogger(AwsCollectorThread.class);
 
-	private ArrayList<AwsAccount> accounts;
+	private List<AwsAccount> accounts;
 	private Config config;
 	private boolean isRunning = false;
 	private AwsStats stats;
@@ -34,7 +35,7 @@ public class AwsCollectorThread extends Thread {
 	 * @param supportedRegions
 	 * @param ignoredComponents
 	 */
-	public AwsCollectorThread(AwsStats stats, ArrayList<AwsAccount> accounts, Config config) {
+	public AwsCollectorThread(AwsStats stats, List<AwsAccount> accounts, Config config) {
 		this.stats = stats;
 		this.accounts = accounts;
 		this.config = config;
@@ -65,13 +66,13 @@ public class AwsCollectorThread extends Thread {
 
 		isRunning = true;
 		DateTime startTime = DateTime.now();
-		ArrayList<Thread> threads = new ArrayList<Thread>();
+		List<Thread> threads = new ArrayList<Thread>();
 
 		/*
 		 * Configuration
 		 */
 		LOG.info("Supported regions: " + Arrays.toString(config.getSupportedRegions()));
-		ArrayList<Regions> regions = new ArrayList<Regions>();
+		List<Regions> regions = new ArrayList<Regions>();
 		for (String s : config.getSupportedRegions()) {
 			regions.add(Regions.valueOf(s));
 		}
@@ -86,7 +87,7 @@ public class AwsCollectorThread extends Thread {
 			LOG.info("Ignored recources: " + Arrays.toString(config.getIgnoredComponents()));
 		}
 
-		ArrayList<AwsResourceType> resourceTypes = new ArrayList<AwsResourceType>();
+		List<AwsResourceType> resourceTypes = new ArrayList<AwsResourceType>();
 		for (AwsResourceType resourceType : AwsResourceType.values()) {
 
 			// exclude S3 and scan it afterwards separately

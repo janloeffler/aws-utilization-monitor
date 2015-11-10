@@ -4,6 +4,7 @@ import java.io.UnsupportedEncodingException;
 import java.net.URLDecoder;
 import java.net.URLEncoder;
 import java.util.ArrayList;
+import java.util.List;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -121,7 +122,7 @@ final class AwsUtilizationMonitorController {
 	// AwsAccount[] credentials() {
 	// LOG.info("called /credentials/");
 	//
-	// ArrayList<AwsAccount> accounts = new ArrayList<AwsAccount>();
+	// List<AwsAccount> accounts = new ArrayList<AwsAccount>();
 	// accounts.add(new AwsAccount(
 	// "123456789012 (account-name1)",
 	// "ASIAI345ZKOMUQ76JZ2A",
@@ -207,31 +208,31 @@ final class AwsUtilizationMonitorController {
 		LOG.info("called /");
 
 		return "<html><header><style>p, li, ul, a { font-family:'Courier New', Arial; }</style></header><body><h1>AWS Utilization Statistics</h1><p><ul>"
-		+ "<li><a href=/accounts/>/accounts/</a> List accounts</li>"
-		+ "<li><a href=/accounts/123456789012/>/accounts/{account_name}/</a> Show resources used by account with name \"123456789012\"</li>"
-		+ "<li><a href=/apps/>/apps/</a> List EC2 based apps</li>"
-		+ "<li><a href=/apps/NAT/>/apps/{app_name}/</a> Show EC2 based apps with name \"NAT\"</li>"
-		+ "<li><a href=/clear/>/clear/</a> Clear data cache</li>"
-		+ "<li><a href=/health/>/health/</a> Show health</li>"
-		+ "<li><a href=/instancetypes/>/instancetypes/</a> List used EC2 instance types</li>"
-		+ "<li><a href=/instancetypes/"
-		+ encodeParam("t2.micro")
-		+ "/>/instancetypes/{instance_type}/</a> Show EC2 based apps with instance type \"t2.micro\"</li>"
-		+ "<li><a href=/keys/>/keys/</a> List keys</li>"
-		+ "<li><a href=/keys/PublicDnsName/>/keys/{key_name}/</a> Show resources that contain a value with the key \"PublicDnsName\"</li>"
-		+ "<li><a href=/regions/>/regions/</a> List regions</li>"
-		+ "<li><a href=/regions/EU_WEST_1/>/regions/{region_name}/</a> Show resources used by region with name \"EU_WEST_1\"</li>"
-		+ "<li><a href=/resources/>/resources/</a> List resources</li>"
-		+ "<li><a href=/resources/NAT/>/resources/{resource_name}/</a> Show resources with name \"NAT\"</li>"
-		+ "<li><a href=/search/banana/>/search/{search_pattern}/</a> Show app with name \"banana\"</li>"
-		+ "<li><a href=/statistics/>/statistics/</a> Show statistics about resource usage</li>"
-		+ "<li><a href=/summary/>/summary/</a> Show summary KPIs only about resource usage</li>"
-		+ "<li><a href=/teams/>/teams/</a> List team names if \"team\" tag was specified</li>"
-		+ "<li><a href=/teams/Platform/>/teams/{team_name}/</a> Show resources of team \"Platform\"</li>"
-		+ "<li><a href=/test/>/test/</a> Generate test data</li>"
-		+ "<li><a href=/test/30/>/test/{maxItems}</a> Generate test data with 30 items</li>"
-		+ "<li><a href=/values/Team/Platform/>/values/{key_name}/{value_pattern}/</a> Show resources that contain a value with the key \"Team\" and the pattern \"Platform\"</li>"
-		+ "</ul></p></body></html>";
+				+ "<li><a href=/accounts/>/accounts/</a> List accounts</li>"
+				+ "<li><a href=/accounts/123456789012/>/accounts/{account_name}/</a> Show resources used by account with name \"123456789012\"</li>"
+				+ "<li><a href=/apps/>/apps/</a> List EC2 based apps</li>"
+				+ "<li><a href=/apps/NAT/>/apps/{app_name}/</a> Show EC2 based apps with name \"NAT\"</li>"
+				+ "<li><a href=/clear/>/clear/</a> Clear data cache</li>"
+				+ "<li><a href=/health/>/health/</a> Show health</li>"
+				+ "<li><a href=/instancetypes/>/instancetypes/</a> List used EC2 instance types</li>"
+				+ "<li><a href=/instancetypes/"
+				+ encodeParam("t2.micro")
+				+ "/>/instancetypes/{instance_type}/</a> Show EC2 based apps with instance type \"t2.micro\"</li>"
+				+ "<li><a href=/keys/>/keys/</a> List keys</li>"
+				+ "<li><a href=/keys/PublicDnsName/>/keys/{key_name}/</a> Show resources that contain a value with the key \"PublicDnsName\"</li>"
+				+ "<li><a href=/regions/>/regions/</a> List regions</li>"
+				+ "<li><a href=/regions/EU_WEST_1/>/regions/{region_name}/</a> Show resources used by region with name \"EU_WEST_1\"</li>"
+				+ "<li><a href=/resources/>/resources/</a> List resources</li>"
+				+ "<li><a href=/resources/NAT/>/resources/{resource_name}/</a> Show resources with name \"NAT\"</li>"
+				+ "<li><a href=/search/banana/>/search/{search_pattern}/</a> Show app with name \"banana\"</li>"
+				+ "<li><a href=/statistics/>/statistics/</a> Show statistics about resource usage</li>"
+				+ "<li><a href=/summary/>/summary/</a> Show summary KPIs only about resource usage</li>"
+				+ "<li><a href=/teams/>/teams/</a> List team names if \"team\" tag was specified</li>"
+				+ "<li><a href=/teams/Platform/>/teams/{team_name}/</a> Show resources of team \"Platform\"</li>"
+				+ "<li><a href=/test/>/test/</a> Generate test data</li>"
+				+ "<li><a href=/test/30/>/test/{maxItems}</a> Generate test data with 30 items</li>"
+				+ "<li><a href=/values/Team/Platform/>/values/{key_name}/{value_pattern}/</a> Show resources that contain a value with the key \"Team\" and the pattern \"Platform\"</li>"
+				+ "</ul></p></body></html>";
 	}
 
 	@RequestMapping("/instancetypes/")
@@ -469,7 +470,7 @@ final class AwsUtilizationMonitorController {
 		 */
 		int maxDays = 30;
 		int runningSinceDays = 0;
-		ArrayList<String> names = new ArrayList<String>();
+		List<String> names = new ArrayList<String>();
 		t.clear();
 		for (AwsResource res : stats.getResourcesRunningSince(maxDays)) {
 			String name = res.getName();
